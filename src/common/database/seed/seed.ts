@@ -1,6 +1,18 @@
 import { PrismaClient } from '@prisma/client';
+import { SeatStatus } from '../../enums';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
-const prisma = new PrismaClient();
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+const prisma = new PrismaClient({
+  log: process.env.NODE_ENV === 'development'
+    ? ['query', 'warn', 'error']
+    : ['error'],
+  adapter: new PrismaPg(pool),
+});
 
 async function main() {
   console.log('Starting database seeding...');
@@ -47,7 +59,7 @@ async function main() {
       rowNumber: string;
       seatType: 'VIP' | 'PREMIUM' | 'REGULAR';
       price: number;
-      status: 'AVAILABLE';
+      status: SeatStatus;
     }> = [];
     for (let i = 1; i <= seatsPerSection; i++) {
       const row = String.fromCharCode(65 + Math.floor((i - 1) / 10)); // A, B, C, etc.
@@ -55,12 +67,12 @@ async function main() {
 
       seats.push({
         eventId: event1.id,
-        seatNumber: `${row}${seatNum}`,
+        seatNumber: `${section}-${row}${seatNum}`,
         section,
         rowNumber: row,
         seatType,
         price: basePrice,
-        status: 'AVAILABLE' as const,
+        status: SeatStatus.AVAILABLE,
       });
     }
 
@@ -79,7 +91,7 @@ async function main() {
     rowNumber: string;
     seatType: 'REGULAR';
     price: number;
-    status: 'AVAILABLE';
+    status: SeatStatus;
   }> = [];
   for (let i = 1; i <= 100; i++) {
     const row = String.fromCharCode(65 + Math.floor((i - 1) / 20));
@@ -92,7 +104,7 @@ async function main() {
       rowNumber: row,
       seatType: 'REGULAR' as const,
       price: 75,
-      status: 'AVAILABLE' as const,
+      status: SeatStatus.AVAILABLE,
     });
   }
 

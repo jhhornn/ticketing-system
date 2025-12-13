@@ -12,6 +12,11 @@ datasource db {
 
 // ==================== ENUMS ====================
 
+enum Role {
+  USER
+  ADMIN
+}
+
 enum EventStatus {
   UPCOMING
   ON_SALE
@@ -54,22 +59,40 @@ enum ReservationStatus {
 
 // ==================== MODELS ====================
 
+/// Users table - stores user authentication and profile info
+model User {
+  id        String   @id @default(uuid()) @map("user_id") @db.VarChar(50)
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  firstName String   @map("first_name") @db.VarChar(100)
+  lastName  String   @map("last_name") @db.VarChar(100)
+  role      Role     @default(USER)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  bookings     Booking[]
+  reservations Reservation[]
+
+  @@map("users")
+}
+
 /// Events table - stores event information
 model Event {
-  id              BigInt          @id @default(autoincrement()) @map("event_id")
-  eventName       String          @map("event_name") @db.VarChar(255)
-  eventDate       DateTime        @map("event_date") @db.Timestamp(6)
-  venueName       String?         @map("venue_name") @db.VarChar(255)
-  totalSeats      Int             @map("total_seats")
-  availableSeats  Int             @map("available_seats")
-  status          EventStatus     @default(UPCOMING)
-  saleStartTime   DateTime?       @map("sale_start_time") @db.Timestamp(6)
-  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamp(6)
-  
+  id             BigInt      @id @default(autoincrement()) @map("event_id")
+  eventName      String      @map("event_name") @db.VarChar(255)
+  eventDate      DateTime    @map("event_date") @db.Timestamp(6)
+  venueName      String?     @map("venue_name") @db.VarChar(255)
+  totalSeats     Int         @map("total_seats")
+  availableSeats Int         @map("available_seats")
+  status         EventStatus @default(UPCOMING)
+  saleStartTime  DateTime?   @map("sale_start_time") @db.Timestamp(6)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
+
   // Relations
-  seats           Seat[]
-  bookings        Booking[]
-  reservations    Reservation[]
+  seats        Seat[]
+  bookings     Booking[]
+  reservations Reservation[]
 
   // Indexes
   @@index([saleStartTime], map: "idx_events_sale_start_time")
@@ -79,24 +102,24 @@ model Event {
 
 /// Seats table - stores individual seat information for events
 model Seat {
-  id             BigInt          @id @default(autoincrement()) @map("seat_id")
-  eventId        BigInt          @map("event_id")
-  seatNumber     String          @map("seat_number") @db.VarChar(20)
-  section        String?         @db.VarChar(50)
-  rowNumber      String?         @map("row_number") @db.VarChar(10)
-  seatType       SeatType        @default(REGULAR) @map("seat_type")
-  price          Decimal         @db.Decimal(10, 2)
-  status         SeatStatus      @default(AVAILABLE)
-  version        BigInt          @default(0) // Optimistic locking
-  reservedBy     String?         @map("reserved_by") @db.VarChar(50)
-  reservedUntil  DateTime?       @map("reserved_until") @db.Timestamp(6)
-  bookingId      BigInt?         @map("booking_id")
-  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamp(6)
-  
+  id            BigInt     @id @default(autoincrement()) @map("seat_id")
+  eventId       BigInt     @map("event_id")
+  seatNumber    String     @map("seat_number") @db.VarChar(20)
+  section       String?    @db.VarChar(50)
+  rowNumber     String?    @map("row_number") @db.VarChar(10)
+  seatType      SeatType   @default(REGULAR) @map("seat_type")
+  price         Decimal    @db.Decimal(10, 2)
+  status        SeatStatus @default(AVAILABLE)
+  version       BigInt     @default(0) // Optimistic locking
+  reservedBy    String?    @map("reserved_by") @db.VarChar(50)
+  reservedUntil DateTime?  @map("reserved_until") @db.Timestamp(6)
+  bookingId     BigInt?    @map("booking_id")
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamp(6)
+
   // Relations
-  event          Event           @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  bookingSeats   BookingSeat[]
-  reservations   Reservation[]
+  event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  bookingSeats BookingSeat[]
+  reservations Reservation[]
 
   // Unique constraint and indexes
   @@unique([eventId, seatNumber], map: "uk_event_seat")
@@ -107,20 +130,21 @@ model Seat {
 
 /// Bookings table - stores confirmed bookings
 model Booking {
-  id                BigInt          @id @default(autoincrement()) @map("booking_id")
-  eventId           BigInt          @map("event_id")
-  userId            String          @map("user_id") @db.VarChar(50)
-  totalAmount       Decimal         @map("total_amount") @db.Decimal(10, 2)
-  status            BookingStatus   @default(PENDING)
-  paymentId         String?         @map("payment_id") @db.VarChar(100)
-  paymentStatus     PaymentStatus   @default(PENDING) @map("payment_status")
-  bookingReference  String          @unique @map("booking_reference") @db.VarChar(50)
-  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamp(6)
-  confirmedAt       DateTime?       @map("confirmed_at") @db.Timestamp(6)
-  
+  id               BigInt        @id @default(autoincrement()) @map("booking_id")
+  eventId          BigInt        @map("event_id")
+  userId           String        @map("user_id") @db.VarChar(50)
+  totalAmount      Decimal       @map("total_amount") @db.Decimal(10, 2)
+  status           BookingStatus @default(PENDING)
+  paymentId        String?       @map("payment_id") @db.VarChar(100)
+  paymentStatus    PaymentStatus @default(PENDING) @map("payment_status")
+  bookingReference String        @unique @map("booking_reference") @db.VarChar(50)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+  confirmedAt      DateTime?     @map("confirmed_at") @db.Timestamp(6)
+
   // Relations
-  event             Event           @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  bookingSeats      BookingSeat[]
+  event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user         User          @relation(fields: [userId], references: [id])
+  bookingSeats BookingSeat[]
 
   // Indexes
   @@index([userId], map: "idx_bookings_user_id")
@@ -131,14 +155,14 @@ model Booking {
 
 /// BookingSeats table - many-to-many relationship between bookings and seats
 model BookingSeat {
-  id         BigInt   @id @default(autoincrement()) @map("booking_seat_id")
-  bookingId  BigInt   @map("booking_id")
-  seatId     BigInt   @map("seat_id")
-  price      Decimal  @db.Decimal(10, 2)
-  
+  id        BigInt  @id @default(autoincrement()) @map("booking_seat_id")
+  bookingId BigInt  @map("booking_id")
+  seatId    BigInt  @map("seat_id")
+  price     Decimal @db.Decimal(10, 2)
+
   // Relations
-  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  seat       Seat     @relation(fields: [seatId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  seat    Seat    @relation(fields: [seatId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   // Unique constraint and indexes
   @@unique([bookingId, seatId], map: "uk_booking_seat")
@@ -148,22 +172,38 @@ model BookingSeat {
 
 /// Reservations table - stores temporary seat holds
 model Reservation {
-  id            BigInt              @id @default(autoincrement()) @map("reservation_id")
-  seatId        BigInt              @map("seat_id")
-  eventId       BigInt              @map("event_id")
-  userId        String              @map("user_id") @db.VarChar(50)
-  sessionId     String?             @map("session_id") @db.VarChar(100)
-  expiresAt     DateTime            @map("expires_at") @db.Timestamp(6)
-  status        ReservationStatus   @default(ACTIVE)
-  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamp(6)
-  
+  id        BigInt            @id @default(autoincrement()) @map("reservation_id")
+  seatId    BigInt            @map("seat_id")
+  eventId   BigInt            @map("event_id")
+  userId    String            @map("user_id") @db.VarChar(50)
+  sessionId String?           @map("session_id") @db.VarChar(100)
+  expiresAt DateTime          @map("expires_at") @db.Timestamp(6)
+  status    ReservationStatus @default(ACTIVE)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
+
   // Relations
-  seat          Seat                @relation(fields: [seatId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  event         Event               @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  seat  Seat  @relation(fields: [seatId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
 
   // Indexes
   @@index([seatId], map: "idx_reservations_seat_id")
   @@index([expiresAt], map: "idx_reservations_expires_at")
   @@index([userId], map: "idx_reservations_user_id")
   @@map("reservations")
+}
+
+/// IdempotencyKeys table - prevents duplicate operations
+model IdempotencyKey {
+  id         BigInt   @id @default(autoincrement()) @map("idempotency_key_id")
+  key        String   @unique @map("idempotency_key") @db.VarChar(255)
+  request    String   @db.Text
+  response   String?  @db.Text
+  statusCode Int      @map("status_code")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  expiresAt  DateTime @map("expires_at") @db.Timestamp(6)
+
+  @@index([key], map: "idx_idempotency_key")
+  @@index([expiresAt], map: "idx_idempotency_expires_at")
+  @@map("idempotency_keys")
 }
