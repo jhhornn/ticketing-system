@@ -1,37 +1,98 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Distributed Ticketing System
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A high-performance, scalable backend for a ticketing system built with NestJS. This system handles high-concurrency booking scenarios with distributed locking, idempotency, and a robust microservices-ready architecture.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🚀 Features
 
-## Description
+### Core Modules
+- **Authentication**: JWT-based authentication with Role-Based Access Control (RBAC).
+- **Events**: Event management with seat inventory.
+- **Reservations**: Distributed lock-based seat reservations with TTL and deadlock prevention.
+- **Bookings**: Saga pattern implementation for atomic booking confirmation with payment integration.
+- **Payments**: Strategy pattern for pluggable payment providers (Stripe, Mock, etc.).
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### Key Technical Implementations
+- **Distributed Locking**: Uses Redlock algorithm (Redis) to prevent race conditions and double bookings.
+- **Idempotency**: Ensures operations are processed only once, even with network retries.
+- **Saga Pattern**: Manages distributed transactions (Reservation -> Payment -> Booking) with automatic rollback/compensation.
+- **Strategy Pattern**: Allows switching payment providers dynamically.
+- **Database**: Prisma ORM with PostgreSQL, supporting optimistic locking.
+- **Caching**: Redis for caching and distributed locks.
 
-## Project setup
+## 🏗️ Architecture
+
+The system follows a modular, feature-based architecture:
+
+```
+src/
+├── api/
+│   ├── auth/           # Authentication & Authorization
+│   ├── booking/        # Booking management (Saga)
+│   ├── events/         # Event & Seat management
+│   ├── payment/        # Payment processing (Strategy)
+│   └── reservation/    # Temporary seat holding (Locks)
+├── common/
+│   ├── database/       # Prisma & Seeding
+│   ├── redis/          # Redis client
+│   └── locks/          # Distributed locking service
+└── main.ts
+```
+
+### Booking Flow (Saga)
+1.  **Validate Reservation**: Check if seats are reserved by the user.
+2.  **Acquire Locks**: Lock all seats to prevent concurrent modifications.
+3.  **Process Payment**: Charge the user via the selected payment provider.
+4.  **Create Booking**: Persist booking record.
+5.  **Link Seats**: Assign seats to the booking.
+6.  **Update Status**: Mark seats as sold.
+7.  **Idempotency**: Store result to handle retries.
+
+*If any step fails, the system automatically refunds the payment and releases the seats.*
+
+## 🛠️ Tech Stack
+
+-   **Framework**: [NestJS](https://nestjs.com/)
+-   **Language**: TypeScript
+-   **Database**: PostgreSQL
+-   **ORM**: Prisma
+-   **Cache/Locks**: Redis (ioredis)
+-   **Documentation**: Swagger / OpenAPI
+
+## 🏁 Getting Started
+
+### Prerequisites
+-   Node.js (v18+)
+-   pnpm
+-   Docker (for Redis/Postgres)
+
+### Installation
 
 ```bash
 $ pnpm install
 ```
 
-## Compile and run the project
+### Environment Setup
+
+1.  Copy the example environment file:
+    ```bash
+    cp .env.example .env
+    ```
+2.  Update `.env` with your configuration (Database URL, Redis host, Stripe keys).
+
+### Database Setup
+
+```bash
+# Start infrastructure (if using Docker)
+docker-compose up -d
+
+# Run migrations
+pnpm prisma migrate dev
+
+# Seed the database
+pnpm prisma db seed
+```
+
+## 🏃 Running the Application
 
 ```bash
 # development
@@ -44,55 +105,39 @@ $ pnpm run start:dev
 $ pnpm run start:prod
 ```
 
-## Run tests
+## 📚 API Documentation
 
-```bash
-# unit tests
-$ pnpm run test
+The API is documented using Swagger UI.
 
-# e2e tests
-$ pnpm run test:e2e
+1.  Start the application: `pnpm run start:dev`
+2.  Visit: **http://localhost:3000/api**
 
-# test coverage
-$ pnpm run test:cov
-```
+### Available Endpoints
 
-## Deployment
+**Auth**
+-   `POST /auth/login`
+-   `POST /auth/register`
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+**Reservations**
+-   `POST /reservations` - Reserve seats
+-   `DELETE /reservations/:id` - Cancel reservation
+-   `GET /reservations/user/:userId` - Get user reservations
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+**Bookings**
+-   `POST /bookings/confirm` - Confirm booking with payment
+-   `GET /bookings/reference/:ref` - Get booking by reference
+-   `GET /bookings/user/:userId` - Get user bookings
 
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
-```
+## 🗺️ Roadmap
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+- [x] Core Modules (Auth, Events, Booking, Payment)
+- [x] Distributed Locking (Redlock)
+- [x] Idempotency & Sagas
+- [ ] Advanced Search & Filtering
+- [ ] Email Notifications
+- [ ] WebSocket Real-time Updates
+- [ ] Comprehensive E2E Tests
 
-## Resources
+## 📄 License
 
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+This project is [MIT licensed](LICENSE).
