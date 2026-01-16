@@ -1,0 +1,77 @@
+.sidebar {
+    width: 250px;
+    height: 100vh;
+    background-color: hsl(var(--card));
+    border-right: 1px solid hsl(var(--border));
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    position: fixed;
+    left: 0;
+    top: 0;
+}
+
+.logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: hsl(var(--foreground));
+}
+
+.nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+}
+
+.navItem {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius);
+    color: hsl(var(--muted-foreground));
+    transition: all 0.2s;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.navItem:hover {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+}
+
+.active {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+}
+
+.active:hover {
+    background-color: hsl(var(--primary));
+    opacity: 0.9;
+}
+
+.userProfile {
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid hsl(var(--border));
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: hsl(var(--accent));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
