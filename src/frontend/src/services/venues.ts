@@ -28,6 +28,8 @@ export interface Venue {
     state: string | null;
     country: string | null;
     sections?: VenueSection[];
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface CreateVenueData {

@@ -2,12 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { MapPin, Building, Plus, Search } from 'lucide-react';
 import { VenuesService, type Venue } from '../../services/venues';
 import { CreateVenueModal } from '../../components/CreateVenueModal';
+import { VenueDetailsModal } from '../../components/VenueDetailsModal';
+import { useAuth } from '../../context/AuthContext';
 
 export const VenuesPage: React.FC = () => {
+    const { isSuperAdmin } = useAuth();
     const [venues, setVenues] = useState<Venue[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
 
     useEffect(() => {
         loadVenues();
@@ -46,13 +50,15 @@ export const VenuesPage: React.FC = () => {
                         Manage event venues and locations
                     </p>
                 </div>
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
-                >
-                    <Plus className="w-5 h-5" />
-                    Add Venue
-                </button>
+                {isSuperAdmin() && (
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Add Venue
+                    </button>
+                )}
             </div>
 
             {/* Search Bar */}
@@ -81,7 +87,8 @@ export const VenuesPage: React.FC = () => {
                     {filteredVenues.map((venue) => (
                         <div
                             key={venue.id}
-                            className="bg-card border rounded-xl p-6 hover:shadow-lg transition-shadow"
+                            onClick={() => setSelectedVenue(venue)}
+                            className="bg-card border rounded-xl p-6 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer"
                         >
                             <div className="flex items-start gap-4">
                                 <div className="p-3 bg-primary/10 rounded-lg">
@@ -129,6 +136,12 @@ export const VenuesPage: React.FC = () => {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSuccess={handleVenueCreated}
+            />
+
+            <VenueDetailsModal
+                venue={selectedVenue}
+                isOpen={selectedVenue !== null}
+                onClose={() => setSelectedVenue(null)}
             />
         </div>
     );

@@ -15,6 +15,9 @@ export class DiscountResponseDto {
   type: DiscountType;
 
   @ApiProperty()
+  isActive: boolean;
+
+  @ApiProperty()
   validFrom: Date;
 
   @ApiProperty({ required: false })

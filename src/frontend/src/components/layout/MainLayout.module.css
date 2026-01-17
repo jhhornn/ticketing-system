@@ -5,8 +5,26 @@
 
 .main {
     flex: 1;
-    margin-left: 250px;
+    margin-left: 280px;
     padding: 2rem;
     background-color: hsl(var(--background));
     min-height: 100vh;
+    transition: margin-left 0.3s ease-out;
+}
+
+/* Mobile Responsive - Menu overlays content */
+@media (max-width: 768px) {
+    .main {
+        margin-left: 0;
+        padding-top: 5rem; /* Space for mobile header */
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+
+/* Tablet Responsive */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .main {
+        margin-left: 240px;
+    }
 }

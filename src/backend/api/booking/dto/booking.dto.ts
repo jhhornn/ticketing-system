@@ -43,6 +43,15 @@ export class ConfirmBookingDto {
   idempotencyKey: string;
 
   @ApiProperty({
+    description: 'Optional discount code',
+    example: 'SUMMER2025',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  discountCode?: string;
+
+  @ApiProperty({
     description: 'Payment metadata (optional)',
     required: false,
   })
@@ -74,6 +83,20 @@ export class BookingResponseDto {
     example: 'user123',
   })
   userId: string;
+
+  @ApiProperty({
+    description: 'User email (only for event organizers)',
+    example: 'user@example.com',
+    required: false,
+  })
+  userEmail?: string;
+
+  @ApiProperty({
+    description: 'User full name (only for event organizers)',
+    example: 'John Doe',
+    required: false,
+  })
+  userName?: string;
 
   @ApiProperty({
     description: 'Total booking amount',

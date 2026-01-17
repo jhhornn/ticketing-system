@@ -13,7 +13,10 @@ export type EventStatus = typeof EventStatus[keyof typeof EventStatus];
 export interface Event {
   id: number;
   eventName: string;
+  eventDescription?: string;
+  eventType?: string;
   eventDate: string;
+  eventTime?: string;
   venueId: number | null;
   venueName: string | null;
   customVenue: string | null;
@@ -22,8 +25,10 @@ export interface Event {
   status: EventStatus;
   saleStartTime?: string;
   isFree: boolean;
+  isTicketed?: boolean;
   createdBy: string;
   createdAt: string;
+  hasActiveDiscounts?: boolean;
 }
 
 export interface CreateEventData {

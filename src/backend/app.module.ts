@@ -16,6 +16,7 @@ import { DiscountsModule } from './api/discounts/discounts.module.js';
 import { StatsModule } from './api/stats/stats.module.js';
 import { VenuesModule } from './api/venues/venues.module.js';
 import { SectionsModule } from './api/sections/sections.module.js';
+import { AdvertisementsModule } from './api/advertisements/advertisements.module.js';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { SectionsModule } from './api/sections/sections.module.js';
     StatsModule,
     VenuesModule,
     SectionsModule,
+    AdvertisementsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

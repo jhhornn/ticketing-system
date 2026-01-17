@@ -31,6 +31,7 @@ export interface ConfirmBookingData {
   userId: string;
   paymentMethod: PaymentMethod;
   idempotencyKey: string;
+  discountCode?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -46,6 +47,8 @@ export interface Booking {
   bookingReference: string;
   eventId: number;
   userId: string;
+  userEmail?: string;
+  userName?: string;
   totalAmount: number;
   status: BookingStatus;
   paymentStatus: PaymentStatus;
@@ -93,5 +96,10 @@ export const BookingsService = {
   getUserBookings: async (userId: string): Promise<Booking[]> => {
     const response = await api.get(`/bookings/user/${userId}`);
     return response.data.data;
+  },
+
+  getEventBookings: async (eventId: number): Promise<Booking[]> => {
+    const response = await api.get(`/bookings/event/${eventId}`);
+    return response.data.data || response.data;
   }
 };

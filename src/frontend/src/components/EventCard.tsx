@@ -1,6 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { Calendar, MapPin, Users, Ticket, Settings } from 'lucide-react';
+import { Calendar, MapPin, Users, Ticket, Settings, PercentCircle, Tag, CheckCircle2, XCircle, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface EventCardProps {
@@ -16,12 +16,16 @@ interface EventCardProps {
         status?: string;
         saleStartTime?: string | Date | null;
         mainImageUrl?: string; // Future proofing
+        hasActiveDiscounts?: boolean;
     };
     onManageSections?: () => void;
+    onManageDiscounts?: () => void;
+    onViewDetails?: () => void;
     showBookButton?: boolean;
+    showStats?: boolean; // Show event stats (for My Events page only)
 }
 
-export const EventCard: React.FC<EventCardProps> = ({ event, onManageSections, showBookButton = true }) => {
+export const EventCard: React.FC<EventCardProps> = ({ event, onManageSections, onManageDiscounts, onViewDetails, showBookButton = true, showStats = false }) => {
     const eventDate = new Date(event.eventDate);
     const venue = event.venueName || event.customVenue || 'TBA';
     const now = new Date();
@@ -52,15 +56,23 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onManageSections, s
     const gradient = gradients[event.id % gradients.length];
 
     return (
-        <div className={`group relative bg-card text-card-foreground rounded-xl border shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full hover:scale-[1.02] ${
-            isPastEvent ? 'opacity-75' : ''
-        }`}>
+        <div className="group relative bg-card text-card-foreground rounded-xl border shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full hover:scale-[1.02]">
             {/* Image Header / Placeholder */}
-            <div className={`h-48 w-full bg-gradient-to-br ${gradient} p-6 relative overflow-hidden`}>
+            <div className={`h-48 w-full bg-gradient-to-br ${gradient} p-6 relative overflow-hidden ${
+                isPastEvent ? 'opacity-75' : ''
+            }`}>
                 {/* Status Badge */}
                 <div className={`absolute top-4 left-4 ${category.color} text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1`}>
                     {category.label}
                 </div>
+                
+                {/* Discount Badge */}
+                {event.hasActiveDiscounts && (
+                    <div className="absolute top-16 left-4 bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1 animate-pulse">
+                        <Tag className="w-3 h-3" />
+                        Discounts Available
+                    </div>
+                )}
                 
                 {/* Glassmorphism Date Badge */}
                 <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md text-white px-3 py-1 rounded-full text-sm font-semibold border border-white/30 shadow-sm">
@@ -78,7 +90,9 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onManageSections, s
                 <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300" />
             </div>
 
-            <div className="p-5 flex-1 flex flex-col gap-4">
+            <div className={`p-5 flex-1 flex flex-col gap-4 ${
+                isPastEvent ? 'opacity-75' : ''
+            }`}>
                 {/* Details */}
                 <div className="space-y-2 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
@@ -91,19 +105,86 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onManageSections, s
                     </div>
                     <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-primary" />
-                        <span>{event.availableSeats} / {event.totalSeats} seats left</span>
+                        <span>{event.availableSeats} / {event.totalSeats} seats available</span>
                     </div>
+                    
+                    {/* Event Stats - Only show on My Events page */}
+                    {showStats && (isPastEvent || event.status === 'COMPLETED') && (
+                        <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-gray-500">Tickets Sold:</span>
+                                <span className="font-semibold text-gray-700">
+                                    {event.totalSeats - event.availableSeats} / {event.totalSeats}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-gray-500">Attendance Rate:</span>
+                                <span className="font-semibold text-gray-700">
+                                    {Math.round(((event.totalSeats - event.availableSeats) / event.totalSeats) * 100)}%
+                                </span>
+                            </div>
+                            {event.status === 'COMPLETED' && (
+                                <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    Event Completed
+                                </div>
+                            )}
+                            {event.status === 'CANCELLED' && (
+                                <div className="flex items-center gap-1 text-xs text-red-600 font-medium">
+                                    <XCircle className="w-3 h-3" />
+                                    Event Cancelled
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
-                {/* Footer Actions */}
-                <div className="mt-auto pt-4 space-y-2">
-                    {onManageSections && (
+                {/* Footer Actions - Modern grouped design with full opacity */}
+                <div className="mt-auto pt-4 space-y-3 relative z-10 opacity-100">
+                    {/* Management Actions Group */}
+                    {(onManageSections || onManageDiscounts) && (
+                        <div className="grid grid-cols-2 gap-2">
+                            {onManageSections && (
+                                <button
+                                    onClick={onManageSections}
+                                    disabled={isPastEvent || event.status === 'COMPLETED' || event.status === 'CANCELLED'}
+                                    title="Manage event sections and seating"
+                                    className={`group inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl font-medium transition-all duration-300 text-xs ${
+                                        isPastEvent || event.status === 'COMPLETED' || event.status === 'CANCELLED'
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            : 'bg-gradient-to-br from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 hover:shadow-lg hover:scale-105 active:scale-95'
+                                    }`}
+                                >
+                                    <Settings className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Sections</span>
+                                </button>
+                            )}
+                            {onManageDiscounts && (
+                                <button
+                                    onClick={onManageDiscounts}
+                                    disabled={isPastEvent || event.status === 'COMPLETED' || event.status === 'CANCELLED'}
+                                    title="Manage event discounts and promotions"
+                                    className={`group inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl font-medium transition-all duration-300 text-xs ${
+                                        isPastEvent || event.status === 'COMPLETED' || event.status === 'CANCELLED'
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 hover:shadow-lg hover:scale-105 active:scale-95'
+                                    }`}
+                                >
+                                    <PercentCircle className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Discounts</span>
+                                </button>
+                            )}
+                        </div>
+                    )}
+                    {/* View Details - Primary Action */}
+                    {onViewDetails && (
                         <button
-                            onClick={onManageSections}
-                            className="w-full inline-flex items-center justify-center gap-2 bg-purple-600 text-white px-3 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors text-sm"
+                            onClick={onViewDetails}
+                            title="View detailed analytics and bookings"
+                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 active:scale-95 transition-all duration-300 text-sm shadow-soft hover:shadow-glow"
                         >
-                            <Settings className="w-4 h-4" />
-                            Manage Sections
+                            <Info className="w-4 h-4" />
+                            <span>View Details & Bookings</span>
                         </button>
                     )}
                     <div className="flex items-center justify-between border-t border-border/50 pt-4">

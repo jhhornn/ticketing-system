@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { VenuesService, type CreateVenueData, type CreateVenueSectionData, type SectionType } from '../services/venues';
+import { VenuesService, type CreateVenueData, type SectionType } from '../services/venues';
 import { X, Building, MapPin, Users, Plus, Trash2, Armchair } from 'lucide-react';
 
 interface CreateVenueModalProps {

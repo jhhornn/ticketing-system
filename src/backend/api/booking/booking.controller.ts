@@ -129,4 +129,33 @@ Retrieves all bookings for a specific user, ordered by creation date (newest fir
   ): Promise<BookingResponseDto[]> {
     return this.bookingService.getUserBookings(userId);
   }
+
+  @Get('event/:eventId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get all bookings for an event (Event Organizer)',
+    description: `
+Retrieves all bookings for a specific event. Only accessible by the event owner.
+
+**Perfect for:**
+- Event organizer dashboard
+- Sales analytics
+- Attendee management
+- Revenue tracking
+
+**Returns:**
+- Array of all event bookings with user details
+- Includes payment status and seat information
+- Sorted by booking date (newest first)
+    `,
+  })
+  @ApiStandardArrayResponse(200, 'Event bookings retrieved', BookingResponseDto)
+  @ApiErrorResponses()
+  async getEventBookings(
+    @Param('eventId') eventId: string,
+    @Req() req: { user: { id: string } },
+  ): Promise<BookingResponseDto[]> {
+    return this.bookingService.getEventBookings(Number(eventId), req.user.id);
+  }
 }

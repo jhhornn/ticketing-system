@@ -3,11 +3,13 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   // ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/database/prisma.service.js';
 import { LockingService } from '../../common/locks/locking.service.js';
 import { PaymentService } from '../payment/payment.service.js';
+import { DiscountsService } from '../discounts/discounts.service.js';
 import { ConfirmBookingDto, BookingResponseDto } from './dto/booking.dto.js';
 // import { PaymentMethod } from '../payment/strategies/payment-strategy.interface.js';
 import {
@@ -26,6 +28,7 @@ export class BookingService {
     private readonly prisma: PrismaService,
     private readonly lockingService: LockingService,
     private readonly paymentService: PaymentService,
+    private readonly discountsService: DiscountsService,
   ) {}
 
   /**
@@ -33,7 +36,7 @@ export class BookingService {
    * Implements saga pattern for rollback on failure
    */
   async confirmBooking(dto: ConfirmBookingDto): Promise<BookingResponseDto> {
-    const { reservationId, userId, paymentMethod, idempotencyKey, metadata } =
+    const { reservationId, userId, paymentMethod, idempotencyKey, discountCode, metadata } =
       dto;
 
     // Check idempotency first
@@ -145,22 +148,67 @@ export class BookingService {
               // Valid free event check or error
           }
 
+          // Step 3.5: Apply discount if provided
+          let discountAmount = 0;
+          let finalAmount = totalAmount;
+          let appliedDiscountCode: string | undefined;
+
+          if (discountCode && totalAmount > 0) {
+            const validation = await this.discountsService.validateDiscount(
+              discountCode,
+              Number(reservation.eventId),
+            );
+
+            if (validation.valid && validation.discount) {
+              const discount = validation.discount;
+
+              // Check minimum order amount if specified
+              if (discount.minOrderAmount && totalAmount < discount.minOrderAmount) {
+                this.logger.warn(
+                  `Discount ${discountCode} requires minimum order of ${discount.minOrderAmount}, but total is ${totalAmount}`,
+                );
+              } else {
+                // Calculate discount
+                if (discount.type === 'PERCENTAGE') {
+                  discountAmount = (totalAmount * discount.amount) / 100;
+                } else {
+                  // FIXED_AMOUNT
+                  discountAmount = discount.amount;
+                }
+
+                // Ensure discount doesn't exceed total
+                discountAmount = Math.min(discountAmount, totalAmount);
+                finalAmount = totalAmount - discountAmount;
+                appliedDiscountCode = discountCode;
+
+                this.logger.log(
+                  `Applied discount ${discountCode}: -$${discountAmount.toFixed(2)} (${totalAmount} -> ${finalAmount})`,
+                );
+              }
+            } else {
+              this.logger.warn(`Invalid discount code: ${validation.reason}`);
+              throw new BadRequestException(validation.reason || 'Invalid discount code');
+            }
+          }
+
           // Step 4: Process payment
           const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev';
           
           // Bypass payment in development mode
-          if (isDevelopment && totalAmount > 0) {
+          if (isDevelopment && finalAmount > 0) {
             this.logger.warn('Development mode: Bypassing payment processing');
             paymentId = `dev_payment_${Date.now()}_${Math.random().toString(36).substring(7)}`;
           } else {
             const paymentRequest = {
-              amount: totalAmount,
+              amount: finalAmount,
               currency: 'USD',
               userId,
               metadata: {
                 ...metadata,
                 reservationId,
                 eventId: Number(reservation.eventId),
+                discountCode: appliedDiscountCode,
+                discountAmount,
               },
               idempotencyKey: `payment_${idempotencyKey}`,
             };
@@ -186,7 +234,7 @@ export class BookingService {
             data: {
               eventId: reservation.eventId,
               userId,
-              totalAmount,
+              totalAmount: finalAmount,
               status: BookingStatus.CONFIRMED,
               paymentId,
               paymentStatus: PaymentStatus.SUCCESS,
@@ -194,6 +242,12 @@ export class BookingService {
               confirmedAt: new Date(),
             },
           });
+
+          // Step 5.5: Increment discount usage count if discount was applied
+          if (appliedDiscountCode) {
+            await this.discountsService.incrementUsageCount(appliedDiscountCode);
+            this.logger.log(`Incremented usage count for discount: ${appliedDiscountCode}`);
+          }
 
           // Step 6: Link items to booking
           for (const res of reservations) {
@@ -472,5 +526,81 @@ export class BookingService {
       createdAt: booking.createdAt,
       confirmedAt: booking.confirmedAt ?? undefined,
     };
+  }
+
+  /**
+   * Get all bookings for an event (for event organizers)
+   */
+  async getEventBookings(eventId: number, userId: string): Promise<BookingResponseDto[]> {
+    // First, verify event ownership
+    const event = await this.prisma.event.findUnique({
+      where: { id: BigInt(eventId) },
+      select: { createdBy: true },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+
+    if (event.createdBy !== userId) {
+      throw new ForbiddenException('You do not have permission to view bookings for this event');
+    }
+
+    // Fetch all bookings for this event with user and seat details
+    const bookings = await this.prisma.booking.findMany({
+      where: {
+        eventId: BigInt(eventId),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        bookingSeats: {
+          include: {
+            seat: true,
+            eventSection: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Map to response DTOs with enhanced information
+    return bookings.map((booking) => {
+      const seatNumbers: string[] = [];
+
+      booking.bookingSeats.forEach((bs) => {
+        if (bs.seat) {
+          seatNumbers.push(bs.seat.seatNumber);
+        } else if (bs.eventSection) {
+          seatNumbers.push(`${bs.eventSection.name} (GA x${bs.quantity})`);
+        }
+      });
+
+      return {
+        bookingId: booking.id.toString(),
+        bookingReference: booking.bookingReference,
+        eventId: Number(booking.eventId),
+        userId: booking.userId,
+        userEmail: booking.user.email,
+        userName:
+          `${booking.user.firstName || ''} ${booking.user.lastName || ''}`.trim() ||
+          'N/A',
+        totalAmount: Number(booking.totalAmount),
+        status: booking.status,
+        paymentStatus: booking.paymentStatus,
+        paymentId: booking.paymentId || undefined,
+        seatNumbers,
+        createdAt: booking.createdAt,
+        confirmedAt: booking.confirmedAt ?? undefined,
+      };
+    });
   }
 }

@@ -2,11 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { EventsService, type Event, type EventInventory } from '../../services/events';
 import { ReservationsService } from '../../services/reservations';
+import { DiscountsService } from '../../services/discounts';
 import { SeatMap } from './SeatMap';
 import { ErrorModal } from '../../components/ErrorModal';
 import { format } from 'date-fns';
 import { useVenueSelection } from '../../hooks/useVenueSelection';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Tag, Check, X } from 'lucide-react';
 
 export const EventDetailsPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -21,6 +22,16 @@ export const EventDetailsPage: React.FC = () => {
         canPurchase: boolean; 
         reason?: string 
     } | null>(null);
+
+    // Discount State
+    const [discountCode, setDiscountCode] = useState('');
+    const [validatingDiscount, setValidatingDiscount] = useState(false);
+    const [appliedDiscount, setAppliedDiscount] = useState<{
+        code: string;
+        amount: number;
+        type: 'PERCENTAGE' | 'FIXED_AMOUNT';
+    } | null>(null);
+    const [discountError, setDiscountError] = useState<string | null>(null);
 
     // Venue Selection Hook
     const {
@@ -97,6 +108,74 @@ export const EventDetailsPage: React.FC = () => {
         }
     }, [inventory, selectedSectionId, selectSection]);
 
+    const handleApplyDiscount = async () => {
+        if (!discountCode.trim() || !event) return;
+
+        try {
+            setValidatingDiscount(true);
+            setDiscountError(null);
+
+            const result = await DiscountsService.validate(discountCode.trim(), event.id);
+
+            if (result.valid && result.discount) {
+                setAppliedDiscount({
+                    code: result.discount.code,
+                    amount: result.discount.amount,
+                    type: result.discount.type,
+                });
+                setDiscountError(null);
+            } else {
+                setAppliedDiscount(null);
+                setDiscountError(result.reason || 'Invalid discount code');
+            }
+        } catch (error: any) {
+            setAppliedDiscount(null);
+            setDiscountError(error.response?.data?.message || 'Failed to validate discount code');
+        } finally {
+            setValidatingDiscount(false);
+        }
+    };
+
+    const handleRemoveDiscount = () => {
+        setAppliedDiscount(null);
+        setDiscountCode('');
+        setDiscountError(null);
+    };
+
+    const calculatePrice = () => {
+        if (!selectedSection) return 0;
+        
+        const basePrice = isGA 
+            ? selectedSection.price * quantity 
+            : selectedSection.price * selectedSeatIds.length;
+
+        if (!appliedDiscount || basePrice === 0) return basePrice;
+
+        let discountAmount = 0;
+        if (appliedDiscount.type === 'PERCENTAGE') {
+            discountAmount = (basePrice * appliedDiscount.amount) / 100;
+        } else {
+            discountAmount = appliedDiscount.amount;
+        }
+
+        return Math.max(0, basePrice - discountAmount);
+    };
+
+    const getDiscountAmount = () => {
+        if (!selectedSection || !appliedDiscount) return 0;
+        
+        const basePrice = isGA 
+            ? selectedSection.price * quantity 
+            : selectedSection.price * selectedSeatIds.length;
+
+        if (basePrice === 0) return 0;
+
+        if (appliedDiscount.type === 'PERCENTAGE') {
+            return (basePrice * appliedDiscount.amount) / 100;
+        }
+        return Math.min(appliedDiscount.amount, basePrice);
+    };
+
 
     const handleReservation = async () => {
         if (!event || !selectedSection) return;
@@ -163,7 +242,8 @@ export const EventDetailsPage: React.FC = () => {
                 state: { 
                     reservationId: response.id,
                     eventId: event.id,
-                    eventName: event.eventName
+                    eventName: event.eventName,
+                    discountCode: appliedDiscount?.code
                 } 
             });
 
@@ -313,24 +393,101 @@ export const EventDetailsPage: React.FC = () => {
                                 )}
 
                                 {/* Sticky Bottom Bar for Mobile / Action Area */}
-                                <div className="mt-8 pt-6 border-t flex justify-between items-center">
-                                    <div>
-                                        <div className="text-sm text-slate-500">Total</div>
-                                        <div className="text-2xl font-bold text-primary">
-                                            {selectedSection.price > 0 
-                                                ? (isGA ? `$${selectedSection.price * quantity}` : `$${selectedSection.price * selectedSeatIds.length}`)
-                                                : 'Free'
-                                            }
-                                        </div>
+                                <div className="mt-8 pt-6 border-t space-y-4">
+                                    {/* Discount Code Input */}
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-700">
+                                            Have a discount code?
+                                        </label>
+                                        {!appliedDiscount ? (
+                                            <div className="flex gap-2">
+                                                <div className="relative flex-1">
+                                                    <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                                    <input
+                                                        type="text"
+                                                        value={discountCode}
+                                                        onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+                                                        placeholder="Enter code"
+                                                        className="w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                                                        onKeyPress={(e) => e.key === 'Enter' && handleApplyDiscount()}
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={handleApplyDiscount}
+                                                    disabled={!discountCode.trim() || validatingDiscount}
+                                                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {validatingDiscount ? 'Checking...' : 'Apply'}
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                                <Check className="w-5 h-5 text-green-600" />
+                                                <div className="flex-1">
+                                                    <div className="font-semibold text-green-900">
+                                                        Code "{appliedDiscount.code}" applied!
+                                                    </div>
+                                                    <div className="text-sm text-green-700">
+                                                        {appliedDiscount.type === 'PERCENTAGE' 
+                                                            ? `${appliedDiscount.amount}% discount` 
+                                                            : `$${appliedDiscount.amount} off`}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={handleRemoveDiscount}
+                                                    className="p-1 hover:bg-green-100 rounded"
+                                                >
+                                                    <X className="w-4 h-4 text-green-700" />
+                                                </button>
+                                            </div>
+                                        )}
+                                        {discountError && (
+                                            <div className="text-sm text-red-600 flex items-center gap-1">
+                                                <X className="w-4 h-4" />
+                                                {discountError}
+                                            </div>
+                                        )}
                                     </div>
-                                    <button
-                                        className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-lg font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                        disabled={!canBook || (purchaseEligibility && !purchaseEligibility.canPurchase)}
-                                        onClick={handleReservation}
-                                        title={purchaseEligibility && !purchaseEligibility.canPurchase ? purchaseEligibility.reason : ''}
-                                    >
-                                        {selectedSection.price > 0 ? 'Book' : 'Reserve'} {isGA ? `${quantity} Ticket${quantity > 1 ? 's' : ''}` : `${selectedSeatIds.length} Seat${selectedSeatIds.length !== 1 ? 's' : ''}`}
-                                    </button>
+
+                                    {/* Pricing Summary */}
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            {appliedDiscount && selectedSection.price > 0 && (
+                                                <div className="space-y-1">
+                                                    <div className="text-sm text-slate-500">
+                                                        Original: <span className="line-through">${(isGA ? selectedSection.price * quantity : selectedSection.price * selectedSeatIds.length).toFixed(2)}</span>
+                                                    </div>
+                                                    <div className="text-sm text-green-600 font-medium">
+                                                        Discount: -${getDiscountAmount().toFixed(2)}
+                                                    </div>
+                                                    <div className="text-sm text-slate-500">Total</div>
+                                                    <div className="text-2xl font-bold text-primary">
+                                                        ${calculatePrice().toFixed(2)}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {!appliedDiscount && (
+                                                <>
+                                                    <div className="text-sm text-slate-500">Total</div>
+                                                    <div className="text-2xl font-bold text-primary">
+                                                        {selectedSection.price > 0 
+                                                            ? `$${calculatePrice().toFixed(2)}`
+                                                            : 'Free'
+                                                        }
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                        <button
+                                            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-lg font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                            disabled={!canBook || (purchaseEligibility ? !purchaseEligibility.canPurchase : false)}
+                                            onClick={handleReservation}
+                                            title={purchaseEligibility && !purchaseEligibility.canPurchase ? purchaseEligibility.reason : ''}
+                                        >
+                                            {selectedSection.price > 0 ? 'Book' : 'Reserve'} {isGA ? `${quantity} Ticket${quantity > 1 ? 's' : ''}` : `${selectedSeatIds.length} Seat${selectedSeatIds.length !== 1 ? 's' : ''}`}
+                                        </button>
+                                    </div>
+
                                 </div>
 
                             </>

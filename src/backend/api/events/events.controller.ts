@@ -156,4 +156,14 @@ export class EventsController {
   ): Promise<EventInventoryDto> {
     return this.eventsService.getEventInventory(id);
   }
+
+  @Get(':id/discounts')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all discounts for an event' })
+  async getEventDiscounts(@Param('id', ParseIntPipe) id: number) {
+    // Import DiscountsService and inject it in constructor
+    // For now, we'll add this endpoint in a separate discounts route
+    return { message: 'Use /discounts/event/:eventId endpoint' };
+  }
 }

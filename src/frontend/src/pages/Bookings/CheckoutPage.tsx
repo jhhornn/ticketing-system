@@ -8,6 +8,7 @@ interface LocationState {
     reservationId: number;
     eventId: number;
     eventName: string;
+    discountCode?: string;
 }
 
 export const CheckoutPage: React.FC = () => {
@@ -50,6 +51,7 @@ export const CheckoutPage: React.FC = () => {
                 userId: user.id,
                 paymentMethod: 'mock',
                 idempotencyKey,
+                discountCode: state.discountCode,
                 metadata: {
                     eventName: state.eventName,
                     autoConfirmed: true

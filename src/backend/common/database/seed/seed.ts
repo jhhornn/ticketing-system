@@ -18,11 +18,22 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  console.log('Starting database seeding...');
-
-  // Create a demo user (event organizer) - use upsert to avoid duplicates
+  // Create a Super Admin user - use upsert to avoid duplicates
   const hashedPassword = await bcrypt.hash('password123', 10);
 
+  const superAdmin = await prisma.user.upsert({
+    where: { email: 'admin@ticketing.com' },
+    update: {},
+    create: {
+      email: 'admin@ticketing.com',
+      password: hashedPassword,
+      firstName: 'Super',
+      lastName: 'Admin',
+      role: Role.SUPER_ADMIN,
+    },
+  });
+
+  // Create a demo user (event organizer) - use upsert to avoid duplicates
   const organizer = await prisma.user.upsert({
     where: { email: 'organizer@example.com' },
     update: {},
@@ -34,8 +45,6 @@ async function main() {
       role: Role.USER,
     },
   });
-
-  console.log('Created/found organizer user:', organizer.email);
 
   // Create sample venues - use upsert to avoid duplicates
   const venue1 = await prisma.venue.upsert({
@@ -63,8 +72,6 @@ async function main() {
       capacity: 500,
     },
   });
-
-  console.log('Created/found venues:', venue1.name, venue2.name);
 
   // Create sample events for the organizer - use upsert to avoid duplicates
   const event1 = await prisma.event.upsert({
@@ -97,11 +104,6 @@ async function main() {
       isFree: true,
       createdBy: organizer.id,
     },
-  });
-
-  console.log('Created events:', {
-    event1: event1.eventName,
-    event2: event2.eventName,
   });
 
   // Create Event Sections for event1 (Summer Music Festival - Paid) - use upsert to avoid duplicates
@@ -145,8 +147,6 @@ async function main() {
     }
   });
 
-  console.log('Created sections for both events');
-
   // Create Seats (ASSIGNED) for event1 linked to VIP Section - only if not already seeded
   const existingSeats = await prisma.seat.count({
     where: { eventId: event1.id }
@@ -176,12 +176,7 @@ async function main() {
     await prisma.seat.createMany({
       data: seatsData,
     });
-    
-    console.log('Seeded VIP seats linked to section');
-  } else {
-    console.log('Seats already exist, skipping seat creation');
   }
-  console.log('Database seeding completed successfully!');
 }
 
 main()

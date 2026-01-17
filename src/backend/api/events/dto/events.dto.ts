@@ -127,6 +127,9 @@ export class EventResponseDto {
 
   @ApiProperty()
   createdAt: Date;
+
+  @ApiProperty({ required: false })
+  hasActiveDiscounts?: boolean;
 }
 
 export class InventorySectionDto {

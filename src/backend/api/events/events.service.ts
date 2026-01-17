@@ -181,6 +181,16 @@ export class EventsService implements OnModuleInit {
       orderBy: { eventDate: 'asc' },
       include: {
         venue: true,
+        discounts: {
+          where: {
+            isActive: true,
+            OR: [
+              { validUntil: null },
+              { validUntil: { gte: new Date() } }
+            ]
+          },
+          select: { id: true }
+        }
       },
     });
 
@@ -300,7 +310,7 @@ export class EventsService implements OnModuleInit {
   }
 
   private mapToDto(
-    event: Event & { venue?: { name: string } | null },
+    event: Event & { venue?: { name: string } | null; discounts?: any[] },
   ): EventResponseDto {
     return {
       id: Number(event.id),
@@ -316,6 +326,7 @@ export class EventsService implements OnModuleInit {
       isFree: event.isFree,
       createdBy: event.createdBy,
       createdAt: event.createdAt,
+      hasActiveDiscounts: event.discounts && event.discounts.length > 0,
     };
   }
 

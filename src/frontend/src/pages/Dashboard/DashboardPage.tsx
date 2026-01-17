@@ -7,9 +7,7 @@ import { BookingsService, type Booking } from '../../services/bookings';
 import { 
   Calendar, 
   Ticket, 
-  TrendingUp, 
   DollarSign, 
-  Clock, 
   Users,
   ArrowRight,
   Plus,
@@ -259,8 +257,7 @@ export const DashboardPage: React.FC = () => {
                                                 {event.status === 'ON_SALE' ? 'On Sale' : 
                                                  event.status === 'SOLD_OUT' ? 'Sold Out' :
                                                  event.status === 'CANCELLED' ? 'Cancelled' :
-                                                 event.status === 'COMPLETED' ? 'Completed' :
-                                                 event.status === 'UPCOMING' ? 'Upcoming' : event.status}
+                                                 event.status === 'COMPLETED' ? 'Completed' : 'Upcoming'}
                                             </span>
                                         </div>
                                     </div>

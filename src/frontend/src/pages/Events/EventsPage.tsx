@@ -26,18 +26,6 @@ const categorizeEvent = (event: Event): 'past' | 'on-sale' | 'upcoming' => {
   return 'upcoming';
 };
 
-// Format status for display
-const formatStatus = (status: string): string => {
-  const statusMap: Record<string, string> = {
-    'ON_SALE': 'On Sale',
-    'UPCOMING': 'Upcoming',
-    'SOLD_OUT': 'Sold Out',
-    'CANCELLED': 'Cancelled',
-    'COMPLETED': 'Completed',
-  };
-  return statusMap[status] || status;
-};
-
 export const EventsPage: React.FC = () => {
     const [events, setEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState(true);

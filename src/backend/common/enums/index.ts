@@ -12,4 +12,6 @@ export {
   DiscountType,
   Role,
   SectionType,
+  AdStatus,
+  AdPlacement,
 } from '@prisma/client';
