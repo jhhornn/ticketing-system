@@ -29,7 +29,7 @@ export class McpService implements OnModuleInit {
     // Tool: list_events
     this.server.tool(
       'list_events',
-      'List upcoming events for a tenant',
+      'List upcoming events',
       EventsTool.listEventsSchema.shape as any,
       async (args: any) => {
         const result = await this.eventsTool.listEvents(args);
@@ -83,7 +83,7 @@ export class McpService implements OnModuleInit {
     return [
       {
         name: 'list_events',
-        description: 'List upcoming events for a tenant',
+        description: 'List upcoming events',
         inputSchema: EventsTool.listEventsSchema.shape,
       },
       {

@@ -16,10 +16,8 @@ export interface UserStats {
 }
 
 export const StatsService = {
-  getOrgStats: async (tenantId?: string) => {
-    const response = await api.get<OrgStats>('/stats/org', { 
-      params: { tenantId } 
-    });
+  getOrgStats: async () => {
+    const response = await api.get<{ data: OrgStats }>('/stats/org');
     return response.data;
   },
 

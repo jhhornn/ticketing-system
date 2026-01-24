@@ -22,7 +22,6 @@ Production-ready distributed ticketing system with Redis-based locking and payme
     .setVersion('1.0')
     .addTag('Reservations', 'Seat reservation with distributed locking')
     .addTag('Bookings', 'Booking confirmation with payment integration')
-    .addTag('Tenants', 'Organization management (Multi-tenancy)')
     .addTag('Events', 'Event management and listings')
     .addTag('Discounts', 'Discount code management')
     .addTag('Stats', 'Organization and User statistics')

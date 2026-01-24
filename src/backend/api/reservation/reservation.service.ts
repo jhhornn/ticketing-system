@@ -14,11 +14,11 @@ import {
 } from './dto/create-reservation.dto.js';
 import { ReservationStatus, SeatStatus } from '../../common/enums/index.js';
 
-interface LegacyReservationDto {
-  eventId: number;
-  seatNumbers: string[];
-  userId: string;
-}
+// interface LegacyReservationDto {
+//   eventId: number;
+//   seatNumbers: string[];
+//   userId: string;
+// }
 
 @Injectable()
 export class ReservationService {
@@ -96,7 +96,9 @@ export class ReservationService {
         }
 
         if (section.eventId !== BigInt(eventId)) {
-          throw new BadRequestException('Section does not belong to this event');
+          throw new BadRequestException(
+            'Section does not belong to this event',
+          );
         }
 
         if (section.type !== 'GENERAL') {
@@ -133,16 +135,29 @@ export class ReservationService {
         await this.prisma.reservation.createMany({
           data: reservations,
         });
-        
-        // We need IDs of created reservations, but createMany doesn't return them.
-        // We can query them back or just return success with count.
-        // For consistency with seat logic, let's fetch them generally or just assume success logic.
-        // The frontend mainly needs to know it succeeded.
-        
-        // Update event global availability ?
-        // The event availableSeats should probably reflect total capacity - total allocated?
-        // Or we just rely on section logic. 
-        // Syncing event.availableSeats:
+
+        // Fetch the created reservations to get their IDs
+        // Query by userId, sectionId, and status to get the just-created reservations
+        const createdReservations = await this.prisma.reservation.findMany({
+          where: {
+            eventId: BigInt(eventId),
+            sectionId: BigInt(sectionId),
+            userId,
+            sessionId: sessionId || null,
+            status: ReservationStatus.ACTIVE,
+            expiresAt,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: quantity,
+        });
+
+        if (createdReservations.length === 0) {
+          throw new Error('Failed to retrieve created reservations');
+        }
+
+        // Update event global availability
         await this.prisma.event.update({
           where: { id: BigInt(eventId) },
           data: {
@@ -154,9 +169,12 @@ export class ReservationService {
           (expiresAt.getTime() - Date.now()) / 1000,
         );
 
+        // Return the first reservation ID for the booking flow
+        const firstReservationId = Number(createdReservations[0].id);
+
         return {
-          id: 0, // Placeholder or aggregate ID
-          reservedSeatIds: [], // No specific seats
+          id: firstReservationId,
+          reservedSeatIds: createdReservations.map((r) => Number(r.id)),
           expiresAt,
           expiresInSeconds,
         };
@@ -173,15 +191,14 @@ export class ReservationService {
     userId: string,
     dto: CreateReservationDto,
   ): Promise<ReservationResponseDto> {
-    
     // Route to GA logic if sectionId is present
     if (dto.sectionId) {
       return this.reserveGaTickets(
-        eventId, 
-        userId, 
-        dto.sectionId, 
-        dto.quantity || 1, 
-        dto.sessionId
+        eventId,
+        userId,
+        dto.sectionId,
+        dto.quantity || 1,
+        dto.sessionId,
       );
     }
 
@@ -339,13 +356,35 @@ export class ReservationService {
       });
     }
 
+    // Fetch the created reservations to get their actual reservation IDs
+    const reservations = await this.prisma.reservation.findMany({
+      where: {
+        eventId: BigInt(eventId),
+        userId,
+        sessionId: sessionId || null,
+        status: ReservationStatus.ACTIVE,
+        expiresAt,
+        seatId: { in: reservedSeatIds.map((id) => BigInt(id)) },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    if (reservations.length === 0) {
+      throw new Error('Failed to retrieve created reservations');
+    }
+
     const expiresInSeconds = Math.floor(
       (expiresAt.getTime() - Date.now()) / 1000,
     );
 
+    // Return actual reservation IDs, not seat IDs
+    const reservationIds = reservations.map((r) => Number(r.id));
+
     return {
-      id: reservedSeatIds[0], // Return first reservation ID
-      reservedSeatIds,
+      id: reservationIds[0], // Return first reservation ID
+      reservedSeatIds: reservationIds, // These are reservation IDs, not seat IDs
       expiresAt,
       expiresInSeconds,
       failedSeats: failedSeats.length > 0 ? failedSeats : undefined,
@@ -382,26 +421,26 @@ export class ReservationService {
 
     // Handle GA Cancellation
     if (reservation.sectionId) {
-       await this.prisma.$transaction(async (tx) => {
-         // Release capacity
-         await tx.eventSection.update({
-           where: { id: reservation.sectionId! },
-           data: { allocated: { decrement: 1 } }
-         });
-         
-         // Cancel reservation
-         await tx.reservation.update({
-           where: { id: reservation.id },
-           data: { status: ReservationStatus.CANCELLED }
-         });
+      await this.prisma.$transaction(async (tx) => {
+        // Release capacity
+        await tx.eventSection.update({
+          where: { id: reservation.sectionId! },
+          data: { allocated: { decrement: 1 } },
+        });
 
-         // Increment global event availability
-         await tx.event.update({
-            where: { id: reservation.eventId },
-            data: { availableSeats: { increment: 1 } }
-         });
-       });
-       return;
+        // Cancel reservation
+        await tx.reservation.update({
+          where: { id: reservation.id },
+          data: { status: ReservationStatus.CANCELLED },
+        });
+
+        // Increment global event availability
+        await tx.event.update({
+          where: { id: reservation.eventId },
+          data: { availableSeats: { increment: 1 } },
+        });
+      });
+      return;
     }
 
     // Handle Assigned Seat Cancellation
@@ -426,10 +465,10 @@ export class ReservationService {
         });
 
         // Increment global event availability
-         await this.prisma.event.update({
-            where: { id: reservation.eventId },
-            data: { availableSeats: { increment: 1 } }
-         });
+        await this.prisma.event.update({
+          where: { id: reservation.eventId },
+          data: { availableSeats: { increment: 1 } },
+        });
 
         this.logger.log(`Cancelled reservation ${reservationId}`);
       });
@@ -468,27 +507,28 @@ export class ReservationService {
 
       for (const reservation of expiredReservations) {
         try {
-          
           // Handle GA Expiry
           if (reservation.sectionId) {
-             await this.prisma.$transaction(async (tx) => {
-               const fresh = await tx.reservation.findUnique({ where: { id: reservation.id } });
-               if (fresh && fresh.status === ReservationStatus.ACTIVE) {
-                  await tx.eventSection.update({
-                    where: { id: reservation.sectionId! },
-                    data: { allocated: { decrement: 1 } }
-                  });
-                  await tx.reservation.update({
-                    where: { id: reservation.id },
-                    data: { status: ReservationStatus.EXPIRED }
-                  });
-                  await tx.event.update({
-                    where: { id: reservation.eventId },
-                    data: { availableSeats: { increment: 1 } }
-                  });
-               }
-             });
-             continue;
+            await this.prisma.$transaction(async (tx) => {
+              const fresh = await tx.reservation.findUnique({
+                where: { id: reservation.id },
+              });
+              if (fresh && fresh.status === ReservationStatus.ACTIVE) {
+                await tx.eventSection.update({
+                  where: { id: reservation.sectionId! },
+                  data: { allocated: { decrement: 1 } },
+                });
+                await tx.reservation.update({
+                  where: { id: reservation.id },
+                  data: { status: ReservationStatus.EXPIRED },
+                });
+                await tx.event.update({
+                  where: { id: reservation.eventId },
+                  data: { availableSeats: { increment: 1 } },
+                });
+              }
+            });
+            continue;
           }
 
           // Handle Assigned Seat Expiry
@@ -508,9 +548,11 @@ export class ReservationService {
 
             try {
               // Double-check expiration and status
-              const freshReservation = await this.prisma.reservation.findUnique({
-                where: { id: reservation.id },
-              });
+              const freshReservation = await this.prisma.reservation.findUnique(
+                {
+                  where: { id: reservation.id },
+                },
+              );
 
               if (
                 freshReservation &&
@@ -519,7 +561,7 @@ export class ReservationService {
               ) {
                 // Release the seat
                 await this.prisma.seat.update({
-                  where: { id: reservation.seatId! },
+                  where: { id: reservation.seatId },
                   data: {
                     status: SeatStatus.AVAILABLE,
                     reservedBy: null,
@@ -535,10 +577,9 @@ export class ReservationService {
 
                 // Restore global availability
                 await this.prisma.event.update({
-                    where: { id: reservation.eventId },
-                    data: { availableSeats: { increment: 1 } }
+                  where: { id: reservation.eventId },
+                  data: { availableSeats: { increment: 1 } },
                 });
-
 
                 this.logger.debug(
                   `Cleaned up expired reservation ${reservation.id}`,

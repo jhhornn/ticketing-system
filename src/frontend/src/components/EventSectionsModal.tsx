@@ -440,9 +440,9 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
                         }
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      disabled={editingSection?.allocated === editingSection?.totalCapacity}
+                      disabled={!!(editingSection && editingSection.allocated === editingSection.totalCapacity)}
                     />
-                    {editingSection?.allocated === editingSection?.totalCapacity && (
+                    {editingSection && editingSection.allocated === editingSection.totalCapacity && (
                       <p className="text-xs text-amber-600 mt-1">
                         Cannot change capacity - all seats are sold
                       </p>

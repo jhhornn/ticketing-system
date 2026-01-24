@@ -26,12 +26,10 @@ async function main() {
   // 3. Use with LangChain (Conceptual - LangChain MCP integration varies)
   // For this example, we'll manually invoke the tool to demonstrate
   
-  const tenantId = 'tenant-123';
-  
   console.log('\n--- Querying Events ---');
   const events: any = await client.callTool({
     name: 'list_events',
-    arguments: { tenantId },
+    arguments: {},
   });
   console.log('Events:', events);
 
@@ -43,7 +41,7 @@ async function main() {
       console.log(`\n--- Checking Seats for Event ${eventId} ---`);
       const seats = await client.callTool({
         name: 'get_seat_availability_summary',
-        arguments: { tenantId, eventId },
+        arguments: { eventId },
       });
       console.log('Seat Summary:', seats);
     }

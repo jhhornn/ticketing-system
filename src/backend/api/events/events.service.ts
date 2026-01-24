@@ -1,5 +1,10 @@
 // src/backend/api/events/events.service.ts
-import { Injectable, NotFoundException, OnModuleInit, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  OnModuleInit,
+  BadRequestException,
+} from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../common/database/prisma.service.js';
 import { AuditLogService } from '../../common/audit/audit-log.service.js';
@@ -65,8 +70,10 @@ export class EventsService implements OnModuleInit {
 
       // Copy venue sections to event sections if venue has sections
       if (venue?.venueSections && venue.venueSections.length > 0) {
-        console.log(`[EventsService] Copying ${venue.venueSections.length} sections from venue ${venue.name} to event ${event.eventName}`);
-        
+        console.log(
+          `[EventsService] Copying ${venue.venueSections.length} sections from venue ${venue.name} to event ${event.eventName}`,
+        );
+
         for (const venueSection of venue.venueSections) {
           const eventSection = await this.prisma.eventSection.create({
             data: {
@@ -81,13 +88,17 @@ export class EventsService implements OnModuleInit {
           });
 
           // Generate seats if it's an ASSIGNED section
-          if (venueSection.type === 'ASSIGNED' && venueSection.rows && venueSection.seatsPerRow) {
+          if (
+            venueSection.type === 'ASSIGNED' &&
+            venueSection.rows &&
+            venueSection.seatsPerRow
+          ) {
             await this.generateSeatsForSection(
               Number(event.id),
               Number(eventSection.id),
               venueSection.rows,
               venueSection.seatsPerRow,
-              0 // Default price
+              0, // Default price
             );
           }
         }
@@ -188,13 +199,10 @@ export class EventsService implements OnModuleInit {
         discounts: {
           where: {
             isActive: true,
-            OR: [
-              { validUntil: null },
-              { validUntil: { gte: new Date() } }
-            ]
+            OR: [{ validUntil: null }, { validUntil: { gte: new Date() } }],
           },
-          select: { id: true }
-        }
+          select: { id: true },
+        },
       },
     });
 
@@ -252,7 +260,10 @@ export class EventsService implements OnModuleInit {
     }
 
     // Check if event status allows sales
-    if (event.status !== EventStatus.ON_SALE && event.status !== EventStatus.UPCOMING) {
+    if (
+      event.status !== EventStatus.ON_SALE &&
+      event.status !== EventStatus.UPCOMING
+    ) {
       return {
         canPurchase: false,
         reason: `Event is ${event.status.toLowerCase()}`,
@@ -266,7 +277,11 @@ export class EventsService implements OnModuleInit {
    * Update event - ownership is validated by EventOwnerGuard
    * Protects existing bookings from breaking changes
    */
-  async update(id: number, dto: UpdateEventDto, userId?: string): Promise<EventResponseDto> {
+  async update(
+    id: number,
+    dto: UpdateEventDto,
+    userId?: string,
+  ): Promise<EventResponseDto> {
     // Check if event exists
     const event = await this.prisma.event.findUnique({
       where: { id: BigInt(id) },
@@ -318,7 +333,7 @@ export class EventsService implements OnModuleInit {
         if (hoursDiff > 48) {
           throw new BadRequestException(
             `Cannot change event date by more than 48 hours after bookings exist. ` +
-            `Please cancel existing bookings first or create a new event.`,
+              `Please cancel existing bookings first or create a new event.`,
           );
         }
       }
@@ -420,7 +435,27 @@ export class EventsService implements OnModuleInit {
    * Get event inventory (sections and seats)
    * Supports Hybrid Inventory (Assigned + General Admission)
    */
-  async getEventInventory(eventId: number): Promise<any> {
+  async getEventInventory(eventId: number): Promise<{
+    eventId: number;
+    sections: Array<{
+      id: number;
+      name: string;
+      type: string;
+      price: number;
+      capacity: {
+        total: number;
+        available: number;
+      };
+      mapCoordinates: any;
+      seats?: Array<{
+        id: number;
+        row: string;
+        number: string;
+        status: string;
+        version: number;
+      }>;
+    }>;
+  }> {
     const sections = await this.prisma.eventSection.findMany({
       where: { eventId: BigInt(eventId) },
       include: {
@@ -445,7 +480,24 @@ export class EventsService implements OnModuleInit {
         ).length;
       }
 
-      const payload: any = {
+      const payload: {
+        id: number;
+        name: string;
+        type: string;
+        price: number;
+        capacity: {
+          total: number;
+          available: number;
+        };
+        mapCoordinates: any;
+        seats?: Array<{
+          id: number;
+          row: string;
+          number: string;
+          status: string;
+          version: number;
+        }>;
+      } = {
         id: Number(section.id),
         name: section.name,
         type: section.type,
@@ -462,7 +514,7 @@ export class EventsService implements OnModuleInit {
       if (!isGA) {
         payload.seats = section.seats.map((s) => ({
           id: Number(s.id),
-          row: s.rowNumber,
+          row: s.rowNumber ?? '',
           number: s.seatNumber,
           status: s.status,
           version: Number(s.version),

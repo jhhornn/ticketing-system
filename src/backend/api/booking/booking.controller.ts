@@ -15,7 +15,7 @@ import { BookingService } from './booking.service.js';
 import {
   ConfirmBookingDto,
   BookingResponseDto,
-  GetBookingDto,
+  // GetBookingDto,
 } from './dto/booking.dto.js';
 import {
   ApiStandardResponse,
@@ -56,7 +56,11 @@ Confirms a reservation by processing payment and creating a booking.
 - 500: System error (payment refunded automatically)
     `,
   })
-  @ApiStandardResponse(201, 'Booking confirmed successfully', BookingResponseDto)
+  @ApiStandardResponse(
+    201,
+    'Booking confirmed successfully',
+    BookingResponseDto,
+  )
   @ApiErrorResponses()
   @ApiConflictResponse('Duplicate idempotency key - booking already exists')
   async confirmBooking(
@@ -100,7 +104,9 @@ Retrieves booking details using the unique booking reference code.
   })
   @ApiStandardArrayResponse(200, 'My bookings retrieved', BookingResponseDto)
   @ApiErrorResponses()
-  async getMyBookings(@Req() req: { user: { id: string } }): Promise<BookingResponseDto[]> {
+  async getMyBookings(
+    @Req() req: { user: { id: string } },
+  ): Promise<BookingResponseDto[]> {
     const userId = req.user.id;
     return this.bookingService.getUserBookings(userId);
   }

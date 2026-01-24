@@ -1,8 +1,17 @@
 // src/backend/api/sections/sections.service.ts
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../../common/database/prisma.service.js';
 import { AuditLogService } from '../../common/audit/audit-log.service.js';
-import { CreateSectionDto, UpdateSectionDto, SectionResponseDto } from './dto/sections.dto.js';
+import { SectionType } from '@prisma/client';
+import {
+  CreateSectionDto,
+  UpdateSectionDto,
+  SectionResponseDto,
+} from './dto/sections.dto.js';
 
 @Injectable()
 export class SectionsService {
@@ -11,8 +20,11 @@ export class SectionsService {
     private readonly auditLog: AuditLogService,
   ) {}
 
-  async create(createSectionDto: CreateSectionDto): Promise<SectionResponseDto> {
-    const { eventId, generateSeats, rows, seatsPerRow, ...sectionData } = createSectionDto;
+  async create(
+    createSectionDto: CreateSectionDto,
+  ): Promise<SectionResponseDto> {
+    const { eventId, generateSeats, rows, seatsPerRow, ...sectionData } =
+      createSectionDto;
 
     // Verify event exists
     const event = await this.prisma.event.findUnique({
@@ -27,7 +39,10 @@ export class SectionsService {
     await this.validateEventCapacity(eventId, sectionData.totalCapacity);
 
     // Validate seat generation parameters
-    if (sectionData.type === 'ASSIGNED' && generateSeats) {
+    if (
+      sectionData.type === (SectionType.ASSIGNED as string) &&
+      generateSeats
+    ) {
       if (!rows || !seatsPerRow) {
         throw new BadRequestException(
           'rows and seatsPerRow are required when generateSeats is true for ASSIGNED sections',
@@ -54,8 +69,19 @@ export class SectionsService {
     });
 
     // Generate seats if requested
-    if (sectionData.type === 'ASSIGNED' && generateSeats && rows && seatsPerRow) {
-      await this.generateSeats(eventId, Number(section.id), rows, seatsPerRow, sectionData.price);
+    if (
+      sectionData.type === (SectionType.ASSIGNED as string) &&
+      generateSeats &&
+      rows &&
+      seatsPerRow
+    ) {
+      await this.generateSeats(
+        eventId,
+        Number(section.id),
+        rows,
+        seatsPerRow,
+        sectionData.price,
+      );
     }
 
     // Audit log the creation
@@ -89,7 +115,7 @@ export class SectionsService {
 
     // Calculate total capacity including the new section
     let totalCapacity = newSectionCapacity;
-    
+
     for (const section of event.eventSections) {
       // Skip the section being updated
       if (excludeSectionId && Number(section.id) === excludeSectionId) {
@@ -102,7 +128,7 @@ export class SectionsService {
       const available = event.totalSeats - (totalCapacity - newSectionCapacity);
       throw new BadRequestException(
         `Total section capacity (${totalCapacity}) would exceed event capacity (${event.totalSeats}). ` +
-        `You can only add ${available} more seats.`
+          `You can only add ${available} more seats.`,
       );
     }
   }
@@ -128,7 +154,10 @@ export class SectionsService {
     return this.mapToResponse(section);
   }
 
-  async update(id: number, updateSectionDto: UpdateSectionDto): Promise<SectionResponseDto> {
+  async update(
+    id: number,
+    updateSectionDto: UpdateSectionDto,
+  ): Promise<SectionResponseDto> {
     const section = await this.prisma.eventSection.findUnique({
       where: { id },
     });
@@ -138,14 +167,20 @@ export class SectionsService {
     }
 
     // Prevent reducing capacity below allocated
-    if (updateSectionDto.totalCapacity && updateSectionDto.totalCapacity < section.allocated) {
+    if (
+      updateSectionDto.totalCapacity &&
+      updateSectionDto.totalCapacity < section.allocated
+    ) {
       throw new BadRequestException(
         `Cannot reduce capacity to ${updateSectionDto.totalCapacity}. Already allocated: ${section.allocated}`,
       );
     }
 
     // If capacity is being changed, validate against event total
-    if (updateSectionDto.totalCapacity && updateSectionDto.totalCapacity !== section.totalCapacity) {
+    if (
+      updateSectionDto.totalCapacity &&
+      updateSectionDto.totalCapacity !== section.totalCapacity
+    ) {
       await this.validateEventCapacity(
         Number(section.eventId),
         updateSectionDto.totalCapacity,
@@ -216,7 +251,7 @@ export class SectionsService {
     }
 
     // Delete associated seats first if ASSIGNED
-    if (section.type === 'ASSIGNED') {
+    if (section.type === SectionType.ASSIGNED) {
       await this.prisma.seat.deleteMany({
         where: { sectionId: id },
       });
@@ -290,7 +325,9 @@ export class SectionsService {
       } else {
         const first = Math.floor(i / 26) - 1;
         const second = i % 26;
-        letters.push(String.fromCharCode(65 + first) + String.fromCharCode(65 + second)); // AA, AB, etc.
+        letters.push(
+          String.fromCharCode(65 + first) + String.fromCharCode(65 + second),
+        ); // AA, AB, etc.
       }
     }
     return letters;
@@ -312,7 +349,10 @@ export class SectionsService {
       eventId: Number(section.eventId),
       name: section.name,
       type: section.type,
-      price: typeof section.price === 'number' ? section.price : (section.price.toNumber?.() || Number(section.price.toString?.())),
+      price:
+        typeof section.price === 'number'
+          ? section.price
+          : section.price.toNumber?.() || Number(section.price.toString?.()),
       totalCapacity: section.totalCapacity,
       allocated: section.allocated,
       available: section.totalCapacity - section.allocated,

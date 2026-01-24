@@ -40,7 +40,7 @@ export const EventsCalendar: React.FC = () => {
 
     const loadEvents = async () => {
         try {
-            const data = await EventsService.getAll(); // Add tenantId param if needed
+            const data = await EventsService.getAll();
             const calendarEvents: CalendarEvent[] = data.map(e => ({
                 id: e.id,
                 title: e.eventName,

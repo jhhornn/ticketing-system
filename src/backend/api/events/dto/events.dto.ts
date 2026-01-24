@@ -7,11 +7,13 @@ import {
   IsString,
   Min,
 } from 'class-validator';
+import { Trim } from 'class-sanitizer';
 import { ApiProperty } from '@nestjs/swagger';
 import { EventStatus } from '../../../common/enums/index.js';
 
 export class CreateEventDto {
   @ApiProperty({ example: 'Summer Music Festival 2025' })
+  @Trim()
   @IsString()
   @IsNotEmpty()
   eventName: string;
@@ -27,6 +29,7 @@ export class CreateEventDto {
   venueId?: number;
 
   @ApiProperty({ example: 'Central Park Amphitheater', required: false, description: 'Custom venue name if not using registered venue' })
+  @Trim()
   @IsString()
   @IsOptional()
   customVenue?: string;

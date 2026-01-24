@@ -122,7 +122,7 @@ export const EventListItem: React.FC<EventListItemProps> = ({
                         {/* Ticket Type Badge */}
                         <div className={`flex-shrink-0 ${isPastEvent ? 'opacity-75' : ''}`}>
                             <div className="text-lg font-bold px-4 py-2 bg-muted rounded-lg text-center">
-                                {event.isFree ? 'Free' : 'Ticketed'}
+                                Ticketed
                             </div>
                         </div>
                     </div>

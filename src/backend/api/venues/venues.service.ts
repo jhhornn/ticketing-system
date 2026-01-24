@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/database/prisma.service.js';
 import { CreateVenueDto, VenueResponseDto } from './dto/venues.dto.js';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class VenuesService {
@@ -21,7 +22,7 @@ export class VenuesService {
     // Create venue sections if provided
     if (dto.sections && dto.sections.length > 0) {
       await this.prisma.venueSection.createMany({
-        data: dto.sections.map(section => ({
+        data: dto.sections.map((section) => ({
           venueId: venue.id,
           name: section.name,
           type: section.type,
@@ -37,6 +38,10 @@ export class VenuesService {
       where: { id: venue.id },
       include: { venueSections: true },
     });
+
+    if (!venueWithSections) {
+      throw new NotFoundException(`Venue with ID ${venue.id} not found`);
+    }
 
     return this.mapToDto(venueWithSections);
   }
@@ -62,7 +67,9 @@ export class VenuesService {
     return this.mapToDto(venue);
   }
 
-  private mapToDto(venue: any): VenueResponseDto {
+  private mapToDto(
+    venue: Prisma.VenueGetPayload<{ include: { venueSections: true } }>,
+  ): VenueResponseDto {
     return {
       id: Number(venue.id),
       name: venue.name,
@@ -71,14 +78,15 @@ export class VenuesService {
       city: venue.city,
       state: venue.state,
       country: venue.country,
-      sections: venue.venueSections?.map((section: any) => ({
-        id: Number(section.id),
-        name: section.name,
-        type: section.type,
-        totalCapacity: section.totalCapacity,
-        rows: section.rows,
-        seatsPerRow: section.seatsPerRow,
-      })) || [],
+      sections:
+        venue.venueSections?.map((section) => ({
+          id: Number(section.id),
+          name: section.name,
+          type: section.type,
+          totalCapacity: section.totalCapacity,
+          rows: section.rows ?? undefined,
+          seatsPerRow: section.seatsPerRow ?? undefined,
+        })) || [],
     };
   }
 }

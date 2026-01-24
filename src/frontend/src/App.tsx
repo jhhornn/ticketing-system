@@ -41,7 +41,7 @@ function App() {
               <Route path="checkout" element={<CheckoutPage />} />
               <Route path="bookings" element={<MyBookingsPage />} />
               <Route path="venues" element={<VenuesPage />} />
-              <Route path="tenants" element={<div>Tenants Component</div>} />
+
               <Route path="mcp" element={<McpPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="settings" element={<div>Settings Component</div>} />

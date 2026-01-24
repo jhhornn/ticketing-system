@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { DatabaseModule } from './common/database/index.js';
@@ -26,6 +28,10 @@ import { AdvertisementsModule } from './api/advertisements/advertisements.module
       envFilePath: '../../.env',
     }),
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRoot([{
+      ttl: 60000, // Time window in milliseconds (1 minute)
+      limit: 100, // Max requests per ttl per user
+    }]),
     DatabaseModule,
     RedisModule,
     LocksModule,
@@ -43,6 +49,12 @@ import { AdvertisementsModule } from './api/advertisements/advertisements.module
     AdvertisementsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

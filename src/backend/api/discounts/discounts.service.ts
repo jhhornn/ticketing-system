@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../../common/database/prisma.service.js';
 import { CreateDiscountDto } from './dto/create-discount.dto.js';
 import { UpdateDiscountDto } from './dto/update-discount.dto.js';
@@ -9,7 +14,10 @@ import { Discount } from '@prisma/client';
 export class DiscountsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async verifyEventOwnership(eventId: number, userId: string): Promise<void> {
+  private async verifyEventOwnership(
+    eventId: number,
+    userId: string,
+  ): Promise<void> {
     const event = await this.prisma.event.findFirst({
       where: {
         id: BigInt(eventId),
@@ -18,11 +26,16 @@ export class DiscountsService {
     });
 
     if (!event) {
-      throw new ForbiddenException('You do not have permission to manage discounts for this event');
+      throw new ForbiddenException(
+        'You do not have permission to manage discounts for this event',
+      );
     }
   }
 
-  async create(createDiscountDto: CreateDiscountDto, userId: string): Promise<DiscountResponseDto> {
+  async create(
+    createDiscountDto: CreateDiscountDto,
+    userId: string,
+  ): Promise<DiscountResponseDto> {
     // Verify event ownership if eventId is provided
     if (createDiscountDto.eventId) {
       await this.verifyEventOwnership(createDiscountDto.eventId, userId);
@@ -36,7 +49,7 @@ export class DiscountsService {
     });
 
     if (existing) {
-       throw new BadRequestException('Discount code already exists');
+      throw new BadRequestException('Discount code already exists');
     }
 
     const discount = await this.prisma.discount.create({
@@ -44,11 +57,17 @@ export class DiscountsService {
         code: createDiscountDto.code,
         amount: createDiscountDto.amount,
         type: createDiscountDto.type,
-        validFrom: createDiscountDto.validFrom ? new Date(createDiscountDto.validFrom) : new Date(),
-        validUntil: createDiscountDto.validUntil ? new Date(createDiscountDto.validUntil) : null,
+        validFrom: createDiscountDto.validFrom
+          ? new Date(createDiscountDto.validFrom)
+          : new Date(),
+        validUntil: createDiscountDto.validUntil
+          ? new Date(createDiscountDto.validUntil)
+          : null,
         usageLimit: createDiscountDto.usageLimit,
         minOrderAmount: createDiscountDto.minOrderAmount,
-        eventId: createDiscountDto.eventId ? BigInt(createDiscountDto.eventId) : null,
+        eventId: createDiscountDto.eventId
+          ? BigInt(createDiscountDto.eventId)
+          : null,
       },
     });
 
@@ -59,7 +78,7 @@ export class DiscountsService {
     const discounts = await this.prisma.discount.findMany({
       orderBy: { createdAt: 'desc' },
     });
-    return discounts.map(this.mapToDto);
+    return discounts.map((d) => this.mapToDto(d));
   }
 
   async findOne(id: number): Promise<DiscountResponseDto> {
@@ -76,7 +95,11 @@ export class DiscountsService {
     return this.mapToDto(discount);
   }
 
-  async update(id: number, updateDiscountDto: UpdateDiscountDto, userId: string): Promise<DiscountResponseDto> {
+  async update(
+    id: number,
+    updateDiscountDto: UpdateDiscountDto,
+    userId: string,
+  ): Promise<DiscountResponseDto> {
     const existing = await this.prisma.discount.findFirst({
       where: { id: BigInt(id) },
     });
@@ -96,11 +119,17 @@ export class DiscountsService {
         code: updateDiscountDto.code,
         amount: updateDiscountDto.amount,
         type: updateDiscountDto.type,
-        validFrom: updateDiscountDto.validFrom ? new Date(updateDiscountDto.validFrom) : undefined,
-        validUntil: updateDiscountDto.validUntil ? new Date(updateDiscountDto.validUntil) : undefined,
+        validFrom: updateDiscountDto.validFrom
+          ? new Date(updateDiscountDto.validFrom)
+          : undefined,
+        validUntil: updateDiscountDto.validUntil
+          ? new Date(updateDiscountDto.validUntil)
+          : undefined,
         usageLimit: updateDiscountDto.usageLimit,
         minOrderAmount: updateDiscountDto.minOrderAmount,
-        eventId: updateDiscountDto.eventId ? BigInt(updateDiscountDto.eventId) : undefined,
+        eventId: updateDiscountDto.eventId
+          ? BigInt(updateDiscountDto.eventId)
+          : undefined,
       },
     });
 
@@ -178,14 +207,17 @@ export class DiscountsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return discounts.map(this.mapToDto);
+    return discounts.map((d) => this.mapToDto(d));
   }
 
   /**
    * Validates if a discount can be applied
    * Checks: isActive, validFrom/validUntil dates, and usage limit
    */
-  async validateDiscount(code: string, eventId?: number): Promise<{
+  async validateDiscount(
+    code: string,
+    eventId?: number,
+  ): Promise<{
     valid: boolean;
     discount?: DiscountResponseDto;
     reason?: string;
@@ -254,7 +286,9 @@ export class DiscountsService {
       validUntil: discount.validUntil ?? undefined,
       usageLimit: discount.usageLimit ?? undefined,
       usageCount: discount.usageCount,
-      minOrderAmount: discount.minOrderAmount ? Number(discount.minOrderAmount) : undefined,
+      minOrderAmount: discount.minOrderAmount
+        ? Number(discount.minOrderAmount)
+        : undefined,
       eventId: discount.eventId ? discount.eventId.toString() : undefined,
       createdAt: discount.createdAt,
     };

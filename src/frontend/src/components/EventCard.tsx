@@ -190,7 +190,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onManageSections, o
                     )}
                     <div className="flex items-center justify-between border-t border-border/50 pt-4">
                         <div className="text-lg font-bold text-foreground">
-                            {event.isFree ? 'Free' : 'Ticketed'}
+                            Ticketed Event
                         </div>
 
                         {showBookButton && (

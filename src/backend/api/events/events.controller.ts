@@ -1,4 +1,3 @@
-// src/backend/api/events/events.controller.ts
 import {
   Body,
   Controller,
@@ -46,8 +45,7 @@ export class EventsController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Create a new event',
-    description:
-      "Any authenticated user can create an event. A tenant will be automatically created if the user doesn't have one.",
+    description: 'Any authenticated user can create an event.',
   })
   @ApiStandardResponse(
     HttpStatus.CREATED,
@@ -101,11 +99,7 @@ export class EventsController {
     summary: 'Check if tickets can be purchased for this event',
     description: 'Validates sale dates, event status, and availability',
   })
-  @ApiStandardResponse(
-    HttpStatus.OK,
-    'Purchase eligibility checked',
-    Object,
-  )
+  @ApiStandardResponse(HttpStatus.OK, 'Purchase eligibility checked', Object)
   async canPurchaseTickets(@Param('id', ParseIntPipe) id: number) {
     return this.eventsService.canPurchaseTickets(id);
   }
@@ -154,14 +148,27 @@ export class EventsController {
   async getInventory(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<EventInventoryDto> {
-    return this.eventsService.getEventInventory(id);
+    const inventory = await this.eventsService.getEventInventory(id);
+    return {
+      eventId: inventory.eventId.toString(),
+      sections: inventory.sections.map((section) => ({
+        ...section,
+        id: section.id.toString(),
+        type: section.type as 'ASSIGNED' | 'GENERAL',
+        seats: section.seats?.map((seat) => ({
+          ...seat,
+          id: seat.id.toString(),
+        })),
+      })),
+    };
   }
 
   @Get(':id/discounts')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all discounts for an event' })
-  async getEventDiscounts(@Param('id', ParseIntPipe) id: number) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  getEventDiscounts(@Param('id', ParseIntPipe) id: number) {
     // Import DiscountsService and inject it in constructor
     // For now, we'll add this endpoint in a separate discounts route
     return { message: 'Use /discounts/event/:eventId endpoint' };

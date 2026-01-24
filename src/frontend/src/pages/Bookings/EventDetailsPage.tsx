@@ -238,26 +238,50 @@ export const EventDetailsPage: React.FC = () => {
                 reservationData as import('../../services/reservations').CreateReservationRequest
             );
 
-            showAlert({
-                type: 'success',
-                title: 'Reservation Successful!',
-                message: 'Redirecting to checkout...',
-                onClose: () => {
-                    // Pass reservation data to checkout page via state
-                    navigate('/checkout', { 
-                        state: { 
-                            reservationId: response.id,
-                            eventId: event.id,
-                            eventName: event.eventName,
-                            discountCode: appliedDiscount?.code
-                        } 
-                    });
-                }
+            // Calculate pricing information to pass to checkout
+            const seatNumbers = payload.type === 'ASSIGNED' 
+                ? selectedSection.seats?.filter(s => payload.seatIds?.includes(s.id)).map(s => s.number) || []
+                : [`GA - ${quantity} ticket(s)`];
+            
+            const basePrice = isGA 
+                ? selectedSection.price * quantity 
+                : selectedSection.price * selectedSeatIds.length;
+            
+            let finalPrice = basePrice;
+            if (appliedDiscount) {
+                const discountAmount = appliedDiscount.type === 'PERCENTAGE'
+                    ? (basePrice * appliedDiscount.amount) / 100
+                    : appliedDiscount.amount;
+                finalPrice = Math.max(0, basePrice - discountAmount);
+            }
+
+            // Immediately navigate to checkout without showing alert
+            // This prevents any modal dismissal issues
+            navigate('/checkout', { 
+                state: { 
+                    reservationId: response.id,
+                    eventId: event.id,
+                    eventName: event.eventName,
+                    discountCode: appliedDiscount?.code,
+                    seatNumbers,
+                    sectionName: selectedSection.name,
+                    quantity: isGA ? quantity : selectedSeatIds.length,
+                    pricePerSeat: selectedSection.price,
+                    totalPrice: finalPrice,
+                } 
             });
 
         } catch (err: unknown) {
             console.error('Reservation failed', err);
             const error = err as { response?: { data?: { message?: string } } };
+            
+            // Show error alert
+            showAlert({
+                type: 'error',
+                title: 'Reservation Failed',
+                message: error.response?.data?.message || 'Failed to reserve seats. Please try again.'
+            });
+            
             setError(error.response?.data?.message || 'Failed to reserve seats. Please try again.');
         }
     };
@@ -296,7 +320,6 @@ export const EventDetailsPage: React.FC = () => {
                     <span className="bg-slate-100 px-3 py-1 rounded-full text-slate-700">
                         Total Capacity: {event.totalSeats}
                     </span>
-                    {event.isFree && <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">Free Event</span>}
                 </div>
             </div>
 

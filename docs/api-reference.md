@@ -98,10 +98,10 @@ await SeatsService.getEventSeats(eventId);
 import { DiscountsService, DiscountType } from './services';
 
 // Get all discounts
-await DiscountsService.getAll(tenantId?);
+await DiscountsService.getAll();
 
 // Get discount by ID
-await DiscountsService.getById(id, tenantId?);
+await DiscountsService.getById(id);
 
 // Create discount (Admin only)
 await DiscountsService.create({
@@ -111,13 +111,13 @@ await DiscountsService.create({
   maxUses?: number,
   validFrom?: string,
   validUntil?: string
-}, tenantId?);
+});
 
 // Update discount (Admin only)
-await DiscountsService.update(id, { ...updateData }, tenantId?);
+await DiscountsService.update(id, { ...updateData });
 
 // Delete discount (Admin only)
-await DiscountsService.delete(id, tenantId?);
+await DiscountsService.delete(id);
 ```
 
 ### 7. **StatsService** (`services/stats.ts`)
@@ -125,7 +125,7 @@ await DiscountsService.delete(id, tenantId?);
 import { StatsService } from './services';
 
 // Get organization statistics
-await StatsService.getOrgStats(tenantId?);
+await StatsService.getOrgStats();
 ```
 
 ## Enums

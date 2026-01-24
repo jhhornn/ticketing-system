@@ -30,7 +30,7 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    // Create user - no tenant assignment needed
+    // Create user
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,

@@ -26,18 +26,42 @@ export class MockPaymentStrategy implements IPaymentStrategy {
     // Simulate processing delay
     await this.sleep(500);
 
-    // 95% success rate for simulation
-    const success = Math.random() > 0.05;
     const paymentId = `mock_${uuidv4()}`;
+
+    // Check if caller wants to simulate a specific outcome
+    const simulateFailure = request.metadata?.simulateFailure === true;
+    const simulatePending = request.metadata?.simulatePending === true;
+
+    let status: PaymentStatus;
+    let success: boolean;
+    let errorMessage: string | undefined;
+
+    if (simulateFailure) {
+      // Explicit failure for testing
+      status = PaymentStatus.FAILED;
+      success = false;
+      errorMessage = 'Mock payment failed for testing (simulated)';
+      this.logger.warn('Mock payment: Simulating FAILURE');
+    } else if (simulatePending) {
+      // Pending payment for testing async flows
+      status = PaymentStatus.PENDING;
+      success = true; // Still considered successful initiation
+      this.logger.log('Mock payment: Simulating PENDING status');
+    } else {
+      // Default: Always succeed for MOCK payments
+      status = PaymentStatus.SUCCESS;
+      success = true;
+      this.logger.log('Mock payment: SUCCESS');
+    }
 
     const response: PaymentResponse = {
       success,
       paymentId,
-      status: success ? PaymentStatus.SUCCESS : PaymentStatus.FAILED,
+      status,
       amount: request.amount,
       currency: request.currency || 'USD',
       transactionReference: `TXN_${Date.now()}`,
-      errorMessage: success ? undefined : 'Mock payment failed for testing',
+      errorMessage,
       metadata: request.metadata,
     };
 
@@ -47,23 +71,23 @@ export class MockPaymentStrategy implements IPaymentStrategy {
     return response;
   }
 
-  async verifyPayment(paymentId: string): Promise<PaymentResponse> {
+  verifyPayment(paymentId: string): Promise<PaymentResponse> {
     this.logger.log(`Verifying mock payment: ${paymentId}`);
 
     const payment = this.payments.get(paymentId);
 
     if (!payment) {
-      return {
+      return Promise.resolve({
         success: false,
         paymentId,
         status: PaymentStatus.FAILED,
         amount: 0,
         currency: 'USD',
         errorMessage: 'Payment not found',
-      };
+      });
     }
 
-    return payment;
+    return Promise.resolve(payment);
   }
 
   async refundPayment(request: RefundRequest): Promise<RefundResponse> {

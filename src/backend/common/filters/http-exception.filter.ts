@@ -38,20 +38,23 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
     } else if (exception instanceof Error) {
       message = exception.message;
-      error = exception.stack;
+      // Don't expose stack traces in production
+      if (process.env.NODE_ENV !== 'production') {
+        error = exception.stack;
+      }
     }
 
-    // Log the error
+    // Log the error (full details for debugging)
     this.logger.error(
       `${request.method} ${request.url} - Status: ${status} - Message: ${message}`,
       exception instanceof Error ? exception.stack : undefined,
     );
 
-    // Send standardized error response
+    // Send standardized error response (sanitized for production)
     const errorResponse = new ErrorResponseDto(
       status,
       message,
-      error,
+      process.env.NODE_ENV !== 'production' ? error : undefined,
       request.url,
     );
 

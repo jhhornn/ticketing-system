@@ -84,9 +84,7 @@ export class SeatsService {
     };
   }
 
-  async getAvailableSeats(eventId: string, tenantId: string) {
-    // In a real multi-tenant system, we would filter by tenantId here
-    // e.g., where: { event: { tenantId }, ... }
+  async getAvailableSeats(eventId: string) {
     return this.prisma.seat.findMany({
       where: {
         eventId: BigInt(eventId),
@@ -103,7 +101,7 @@ export class SeatsService {
     });
   }
 
-  async getSeatAvailabilitySummary(eventId: string, tenantId: string) {
+  async getSeatAvailabilitySummary(eventId: string) {
     const stats = await this.prisma.seat.groupBy({
       by: ['status', 'seatType'],
       where: {

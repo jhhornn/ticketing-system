@@ -68,12 +68,12 @@ export const DashboardPage: React.FC = () => {
             link: '/my-events',
         },
         {
-            title: 'Total Bookings',
+            title: 'Event Bookings',
             value: stats?.totalBookings || 0,
-            subtitle: 'Confirmed bookings',
+            subtitle: 'For my events',
             icon: Ticket,
             color: 'bg-green-500',
-            link: '/bookings',
+            link: '/my-events',
         },
         {
             title: 'Total Revenue',

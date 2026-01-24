@@ -109,7 +109,7 @@ model VenueSection {
 }
 
 /// Users table - stores user authentication and profile info
-/// Users are global actors - no direct tenant assignment
+/// Users are global actors in the system
 model User {
   id        String   @id @default(uuid()) @map("user_id") @db.VarChar(50)
   email     String   @unique @db.VarChar(255)

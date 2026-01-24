@@ -71,8 +71,11 @@ export const ReservationsService = {
     return response.data.data;
   },
 
-  getUserReservations: async (userId: string) => {
-    const response = await api.get<{ data: Reservation[] }>(`/reservations/user/${userId}`);
-    return response.data.data;
+  getUserReservations: async (userId: string, eventId: number) => {
+    const response = await api.get<{ data: ReservationResponse[] }>(`/events/${eventId}/reservations/user/${userId}`);
+    return response.data.data.map(r => ({
+      ...r,
+      expiresAt: new Date(r.expiresAt)
+    }));
   }
 };

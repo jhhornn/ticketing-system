@@ -58,7 +58,7 @@ export class AuthController {
     AuthResponseDto,
   )
   @ApiUnauthorizedResponse('Unauthorized')
-  async getProfile(
+  getProfile(
     @CurrentUser()
     user: {
       id: string;

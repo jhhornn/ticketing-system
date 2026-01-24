@@ -164,7 +164,7 @@ To connect your local AI agent to the MCP server, add this configuration to your
 
 Once connected, the following tools are available:
 
-- `list_events` - List upcoming events for a tenant
+- `list_events` - List upcoming events
 - `get_event_details` - Get detailed information about a specific event
 - `list_available_seats` - List available seats for an event (capped at 50)
 - `get_seat_availability_summary` - Get a summary of seat availability by type and status
