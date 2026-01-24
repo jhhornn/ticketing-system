@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ModalProvider } from './context/ModalContext';
 import { MainLayout } from './components/layout/MainLayout';
 import { LoginPage } from './pages/Auth/LoginPage';
 import { RegisterPage } from './pages/Auth/RegisterPage';
@@ -27,24 +28,26 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="events" element={<EventsPage />} />
-            <Route path="my-events" element={<MyEventsPage />} />
-            <Route path="events/:id" element={<EventDetailsPage />} />
-            <Route path="checkout" element={<CheckoutPage />} />
-            <Route path="bookings" element={<MyBookingsPage />} />
-            <Route path="venues" element={<VenuesPage />} />
-            <Route path="tenants" element={<div>Tenants Component</div>} />
-            <Route path="mcp" element={<McpPage />} />
-            <Route path="profile" element={<ProfilePage />} />
-            <Route path="settings" element={<div>Settings Component</div>} />
-          </Route>
-        </Routes>
+        <ModalProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="events" element={<EventsPage />} />
+              <Route path="my-events" element={<MyEventsPage />} />
+              <Route path="events/:id" element={<EventDetailsPage />} />
+              <Route path="checkout" element={<CheckoutPage />} />
+              <Route path="bookings" element={<MyBookingsPage />} />
+              <Route path="venues" element={<VenuesPage />} />
+              <Route path="tenants" element={<div>Tenants Component</div>} />
+              <Route path="mcp" element={<McpPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="settings" element={<div>Settings Component</div>} />
+            </Route>
+          </Routes>
+        </ModalProvider>
       </AuthProvider>
     </BrowserRouter>
   );

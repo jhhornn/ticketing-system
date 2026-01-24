@@ -6,6 +6,7 @@ import { AppService } from './app.service.js';
 import { DatabaseModule } from './common/database/index.js';
 import { RedisModule } from './common/redis/index.js';
 import { LocksModule } from './common/locks/index.js';
+import { AuditLogModule } from './common/audit/audit-log.module.js';
 import { PaymentModule } from './api/payment/payment.module.js';
 import { ReservationModule } from './api/reservation/reservation.module.js';
 import { BookingModule } from './api/booking/booking.module.js';
@@ -28,6 +29,7 @@ import { AdvertisementsModule } from './api/advertisements/advertisements.module
     DatabaseModule,
     RedisModule,
     LocksModule,
+    AuditLogModule,
     PaymentModule,
     ReservationModule,
     BookingModule,

@@ -1,6 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { Calendar, MapPin, Users, Settings, PercentCircle, Info, CheckCircle2, XCircle, Tag } from 'lucide-react';
+import { Calendar, MapPin, Users, Info, CheckCircle2, XCircle, Tag } from 'lucide-react';
+import { ActionButton } from './ui';
 
 interface EventListItemProps {
     event: {
@@ -18,6 +19,7 @@ interface EventListItemProps {
     };
     onManageSections?: () => void;
     onManageDiscounts?: () => void;
+    onEditEvent?: () => void;
     onViewDetails?: () => void;
     showStats?: boolean; // Show event stats (for My Events page only)
 }
@@ -25,7 +27,8 @@ interface EventListItemProps {
 export const EventListItem: React.FC<EventListItemProps> = ({ 
     event, 
     onManageSections, 
-    onManageDiscounts, 
+    onManageDiscounts,
+    onEditEvent, 
     onViewDetails,
     showStats = false
 }) => {
@@ -128,37 +131,33 @@ export const EventListItem: React.FC<EventListItemProps> = ({
                 {/* Right Section: Actions - Modern Design */}
                 <div className="lg:w-72 p-6 bg-gradient-to-br from-muted/20 to-muted/40 lg:border-l border-t lg:border-t-0 space-y-3 flex flex-col justify-center backdrop-blur-sm">
                     {/* Management Actions - Horizontal on mobile, stacked on desktop */}
-                    {(onManageSections || onManageDiscounts) && (
+                    {(onManageSections || onManageDiscounts || onEditEvent) && (
                         <div className="grid grid-cols-2 lg:grid-cols-1 gap-2">
+                            {onEditEvent && (
+                                <ActionButton
+                                    variant="edit"
+                                    onClick={onEditEvent}
+                                    title="Edit event"
+                                    showLabel={false}
+                                />
+                            )}
                             {onManageSections && (
-                                <button
+                                <ActionButton
+                                    variant="sections"
                                     onClick={onManageSections}
                                     disabled={isPastEvent || event.status === 'COMPLETED' || event.status === 'CANCELLED'}
                                     title="Manage sections"
-                                    className={`inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium transition-all duration-300 text-sm ${
-                                        isPastEvent || event.status === 'COMPLETED' || event.status === 'CANCELLED'
-                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                            : 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 hover:shadow-medium hover:-translate-y-0.5 active:translate-y-0'
-                                    }`}
-                                >
-                                    <Settings className="w-4 h-4" />
-                                    <span className="hidden lg:inline">Sections</span>
-                                </button>
+                                    showLabel={false}
+                                />
                             )}
                             {onManageDiscounts && (
-                                <button
+                                <ActionButton
+                                    variant="discounts"
                                     onClick={onManageDiscounts}
                                     disabled={isPastEvent || event.status === 'COMPLETED' || event.status === 'CANCELLED'}
                                     title="Manage discounts"
-                                    className={`inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium transition-all duration-300 text-sm ${
-                                        isPastEvent || event.status === 'COMPLETED' || event.status === 'CANCELLED'
-                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                            : 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 hover:shadow-medium hover:-translate-y-0.5 active:translate-y-0'
-                                    }`}
-                                >
-                                    <PercentCircle className="w-4 h-4" />
-                                    <span className="hidden lg:inline">Discounts</span>
-                                </button>
+                                    showLabel={false}
+                                />
                             )}
                         </div>
                     )}

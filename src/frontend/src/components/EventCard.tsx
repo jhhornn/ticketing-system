@@ -1,7 +1,8 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { Calendar, MapPin, Users, Ticket, Settings, PercentCircle, Tag, CheckCircle2, XCircle, Info } from 'lucide-react';
+import { Calendar, MapPin, Users, Ticket, Tag, CheckCircle2, XCircle, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ActionButton } from './ui';
 
 interface EventCardProps {
     event: {
@@ -20,12 +21,13 @@ interface EventCardProps {
     };
     onManageSections?: () => void;
     onManageDiscounts?: () => void;
+    onEditEvent?: () => void;
     onViewDetails?: () => void;
     showBookButton?: boolean;
     showStats?: boolean; // Show event stats (for My Events page only)
 }
 
-export const EventCard: React.FC<EventCardProps> = ({ event, onManageSections, onManageDiscounts, onViewDetails, showBookButton = true, showStats = false }) => {
+export const EventCard: React.FC<EventCardProps> = ({ event, onManageSections, onManageDiscounts, onEditEvent, onViewDetails, showBookButton = true, showStats = false }) => {
     const eventDate = new Date(event.eventDate);
     const venue = event.venueName || event.customVenue || 'TBA';
     const now = new Date();
@@ -142,37 +144,36 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onManageSections, o
                 {/* Footer Actions - Modern grouped design with full opacity */}
                 <div className="mt-auto pt-4 space-y-3 relative z-10 opacity-100">
                     {/* Management Actions Group */}
-                    {(onManageSections || onManageDiscounts) && (
-                        <div className="grid grid-cols-2 gap-2">
+                    {(onManageSections || onManageDiscounts || onEditEvent) && (
+                        <div className={`grid ${onManageSections && onManageDiscounts && onEditEvent ? 'grid-cols-3' : onManageSections && onManageDiscounts ? 'grid-cols-2' : onEditEvent && (onManageSections || onManageDiscounts) ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+                            {onEditEvent && (
+                                <ActionButton
+                                    variant="edit"
+                                    onClick={onEditEvent}
+                                    size="sm"
+                                    title="Edit event details"
+                                    showLabel={false}
+                                />
+                            )}
                             {onManageSections && (
-                                <button
+                                <ActionButton
+                                    variant="sections"
                                     onClick={onManageSections}
+                                    size="sm"
                                     disabled={isPastEvent || event.status === 'COMPLETED' || event.status === 'CANCELLED'}
                                     title="Manage event sections and seating"
-                                    className={`group inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl font-medium transition-all duration-300 text-xs ${
-                                        isPastEvent || event.status === 'COMPLETED' || event.status === 'CANCELLED'
-                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                            : 'bg-gradient-to-br from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 hover:shadow-lg hover:scale-105 active:scale-95'
-                                    }`}
-                                >
-                                    <Settings className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Sections</span>
-                                </button>
+                                    showLabel={false}
+                                />
                             )}
                             {onManageDiscounts && (
-                                <button
+                                <ActionButton
+                                    variant="discounts"
                                     onClick={onManageDiscounts}
+                                    size="sm"
                                     disabled={isPastEvent || event.status === 'COMPLETED' || event.status === 'CANCELLED'}
                                     title="Manage event discounts and promotions"
-                                    className={`group inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl font-medium transition-all duration-300 text-xs ${
-                                        isPastEvent || event.status === 'COMPLETED' || event.status === 'CANCELLED'
-                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                            : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 hover:shadow-lg hover:scale-105 active:scale-95'
-                                    }`}
-                                >
-                                    <PercentCircle className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Discounts</span>
-                                </button>
+                                    showLabel={false}
+                                />
                             )}
                         </div>
                     )}

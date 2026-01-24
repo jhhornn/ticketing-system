@@ -1,11 +1,15 @@
 // src/backend/api/sections/sections.service.ts
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/database/prisma.service.js';
+import { AuditLogService } from '../../common/audit/audit-log.service.js';
 import { CreateSectionDto, UpdateSectionDto, SectionResponseDto } from './dto/sections.dto.js';
 
 @Injectable()
 export class SectionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+  ) {}
 
   async create(createSectionDto: CreateSectionDto): Promise<SectionResponseDto> {
     const { eventId, generateSeats, rows, seatsPerRow, ...sectionData } = createSectionDto;
@@ -18,6 +22,9 @@ export class SectionsService {
     if (!event) {
       throw new NotFoundException(`Event with ID ${eventId} not found`);
     }
+
+    // SECURITY: Validate total capacity doesn't exceed event capacity
+    await this.validateEventCapacity(eventId, sectionData.totalCapacity);
 
     // Validate seat generation parameters
     if (sectionData.type === 'ASSIGNED' && generateSeats) {
@@ -51,7 +58,53 @@ export class SectionsService {
       await this.generateSeats(eventId, Number(section.id), rows, seatsPerRow, sectionData.price);
     }
 
+    // Audit log the creation
+    await this.auditLog.log({
+      entityType: 'EventSection',
+      entityId: Number(section.id),
+      action: 'CREATE',
+      changes: { ...sectionData, eventId },
+      performedBy: 'system', // TODO: Get from request context
+    });
+
     return this.mapToResponse(section);
+  }
+
+  /**
+   * Validate that adding a new section won't exceed event's total capacity
+   */
+  private async validateEventCapacity(
+    eventId: number,
+    newSectionCapacity: number,
+    excludeSectionId?: number,
+  ): Promise<void> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      include: { eventSections: true },
+    });
+
+    if (!event) {
+      throw new NotFoundException(`Event with ID ${eventId} not found`);
+    }
+
+    // Calculate total capacity including the new section
+    let totalCapacity = newSectionCapacity;
+    
+    for (const section of event.eventSections) {
+      // Skip the section being updated
+      if (excludeSectionId && Number(section.id) === excludeSectionId) {
+        continue;
+      }
+      totalCapacity += section.totalCapacity;
+    }
+
+    if (totalCapacity > event.totalSeats) {
+      const available = event.totalSeats - (totalCapacity - newSectionCapacity);
+      throw new BadRequestException(
+        `Total section capacity (${totalCapacity}) would exceed event capacity (${event.totalSeats}). ` +
+        `You can only add ${available} more seats.`
+      );
+    }
   }
 
   async findByEvent(eventId: number): Promise<SectionResponseDto[]> {
@@ -91,9 +144,34 @@ export class SectionsService {
       );
     }
 
+    // If capacity is being changed, validate against event total
+    if (updateSectionDto.totalCapacity && updateSectionDto.totalCapacity !== section.totalCapacity) {
+      await this.validateEventCapacity(
+        Number(section.eventId),
+        updateSectionDto.totalCapacity,
+        id, // Exclude this section from the calculation
+      );
+    }
+
     const updated = await this.prisma.eventSection.update({
       where: { id },
       data: updateSectionDto,
+    });
+
+    // Audit log the update
+    await this.auditLog.log({
+      entityType: 'EventSection',
+      entityId: id,
+      action: 'UPDATE',
+      changes: updateSectionDto,
+      performedBy: 'system', // TODO: Get from request context
+      metadata: {
+        oldValues: {
+          name: section.name,
+          price: section.price,
+          totalCapacity: section.totalCapacity,
+        },
+      },
     });
 
     return this.mapToResponse(updated);
@@ -146,6 +224,22 @@ export class SectionsService {
 
     await this.prisma.eventSection.delete({
       where: { id },
+    });
+
+    // Audit log the deletion
+    await this.auditLog.log({
+      entityType: 'EventSection',
+      entityId: id,
+      action: 'DELETE',
+      performedBy: 'system', // TODO: Get from request context
+      metadata: {
+        deletedSection: {
+          name: section.name,
+          type: section.type,
+          totalCapacity: section.totalCapacity,
+          eventId: Number(section.eventId),
+        },
+      },
     });
   }
 

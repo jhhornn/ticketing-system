@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { ExternalLink } from 'lucide-react';
-import { Advertisement, AdvertisementsService } from '../services/advertisements';
+import { type Advertisement, AdvertisementsService } from '../services/advertisements';
 
 interface AdBannerProps {
   ad: Advertisement;

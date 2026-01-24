@@ -5,6 +5,7 @@ import { ReservationsService } from '../../services/reservations';
 import { DiscountsService } from '../../services/discounts';
 import { SeatMap } from './SeatMap';
 import { ErrorModal } from '../../components/ErrorModal';
+import { useModal } from '../../context/ModalContext';
 import { format } from 'date-fns';
 import { useVenueSelection } from '../../hooks/useVenueSelection';
 import { ArrowLeft, Tag, Check, X } from 'lucide-react';
@@ -12,6 +13,7 @@ import { ArrowLeft, Tag, Check, X } from 'lucide-react';
 export const EventDetailsPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { showAlert } = useModal();
 
     // Data State
     const [event, setEvent] = useState<Event | null>(null);
@@ -236,15 +238,21 @@ export const EventDetailsPage: React.FC = () => {
                 reservationData as import('../../services/reservations').CreateReservationRequest
             );
 
-            alert('Reservation successful! Redirecting to checkout...');
-            // Pass reservation data to checkout page via state
-            navigate('/checkout', { 
-                state: { 
-                    reservationId: response.id,
-                    eventId: event.id,
-                    eventName: event.eventName,
-                    discountCode: appliedDiscount?.code
-                } 
+            showAlert({
+                type: 'success',
+                title: 'Reservation Successful!',
+                message: 'Redirecting to checkout...',
+                onClose: () => {
+                    // Pass reservation data to checkout page via state
+                    navigate('/checkout', { 
+                        state: { 
+                            reservationId: response.id,
+                            eventId: event.id,
+                            eventName: event.eventName,
+                            discountCode: appliedDiscount?.code
+                        } 
+                    });
+                }
             });
 
         } catch (err: unknown) {

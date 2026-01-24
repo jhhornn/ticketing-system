@@ -1,7 +1,8 @@
 // src/backend/api/events/events.service.ts
-import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit, BadRequestException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../common/database/prisma.service.js';
+import { AuditLogService } from '../../common/audit/audit-log.service.js';
 import {
   CreateEventDto,
   UpdateEventDto,
@@ -12,7 +13,10 @@ import { Event } from '@prisma/client';
 
 @Injectable()
 export class EventsService implements OnModuleInit {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditLog: AuditLogService,
+  ) {}
 
   /**
    * Run status update when service initializes
@@ -260,12 +264,94 @@ export class EventsService implements OnModuleInit {
 
   /**
    * Update event - ownership is validated by EventOwnerGuard
+   * Protects existing bookings from breaking changes
    */
-  async update(id: number, dto: UpdateEventDto): Promise<EventResponseDto> {
+  async update(id: number, dto: UpdateEventDto, userId?: string): Promise<EventResponseDto> {
     // Check if event exists
-    await this.findOne(id);
+    const event = await this.prisma.event.findUnique({
+      where: { id: BigInt(id) },
+      include: {
+        bookings: {
+          where: { status: { in: ['CONFIRMED', 'PENDING'] } },
+        },
+        eventSections: true,
+      },
+    });
 
-    const event = await this.prisma.event.update({
+    if (!event) {
+      throw new NotFoundException(`Event with ID ${id} not found`);
+    }
+
+    const hasBookings = event.bookings.length > 0;
+
+    // SECURITY: Protect existing bookings from breaking changes
+    if (hasBookings) {
+      // Cannot reduce total capacity below what's already allocated
+      if (dto.totalSeats && dto.totalSeats < event.totalSeats) {
+        const totalAllocated = event.eventSections.reduce(
+          (sum, section) => sum + section.allocated,
+          0,
+        );
+
+        if (dto.totalSeats < totalAllocated) {
+          throw new BadRequestException(
+            `Cannot reduce capacity to ${dto.totalSeats}. ${totalAllocated} seats are already booked.`,
+          );
+        }
+      }
+
+      // Cannot change venue after bookings (invalidates sections/seats)
+      if (dto.venueId && dto.venueId !== Number(event.venueId)) {
+        throw new BadRequestException(
+          'Cannot change venue after bookings have been made. This would invalidate existing tickets.',
+        );
+      }
+
+      // Restrict event date changes to prevent confusion
+      if (dto.eventDate) {
+        const newDate = new Date(dto.eventDate);
+        const currentDate = event.eventDate;
+        const timeDiff = Math.abs(newDate.getTime() - currentDate.getTime());
+        const hoursDiff = timeDiff / (1000 * 60 * 60);
+
+        // Allow minor adjustments (up to 48 hours)
+        if (hoursDiff > 48) {
+          throw new BadRequestException(
+            `Cannot change event date by more than 48 hours after bookings exist. ` +
+            `Please cancel existing bookings first or create a new event.`,
+          );
+        }
+      }
+
+      // Cannot change from paid to free or vice versa
+      if (dto.isFree !== undefined && dto.isFree !== event.isFree) {
+        throw new BadRequestException(
+          'Cannot change pricing model (free/paid) after bookings have been made.',
+        );
+      }
+    }
+
+    // Audit log the changes
+    await this.auditLog.log({
+      entityType: 'Event',
+      entityId: id,
+      action: 'UPDATE',
+      changes: dto,
+      performedBy: userId || 'system',
+      metadata: {
+        hasBookings,
+        bookingCount: event.bookings.length,
+        oldValues: {
+          eventName: event.eventName,
+          eventDate: event.eventDate,
+          totalSeats: event.totalSeats,
+          venueId: event.venueId ? Number(event.venueId) : null,
+          isFree: event.isFree,
+        },
+      },
+    });
+
+    const updatedEvent = await this.prisma.event.update({
       where: { id: BigInt(id) },
       data: {
         eventName: dto.eventName,
@@ -284,7 +370,7 @@ export class EventsService implements OnModuleInit {
       },
     });
 
-    return this.mapToDto(event);
+    return this.mapToDto(updatedEvent);
   }
 
   /**

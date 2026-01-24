@@ -375,3 +375,23 @@ model Advertisement {
   @@index([priority], map: "idx_ads_priority")
   @@map("advertisements")
 }
+
+/// AuditLog table - tracks all critical operations for security and compliance
+model AuditLog {
+  id          BigInt   @id @default(autoincrement()) @map("audit_log_id")
+  entityType  String   @map("entity_type") @db.VarChar(50) // Event, Booking, Section, etc.
+  entityId    BigInt   @map("entity_id") // ID of the entity being modified
+  action      String   @db.VarChar(20) // CREATE, UPDATE, DELETE, RESERVE, BOOK, CANCEL
+  changes     String?  @db.Text // JSON string of what changed
+  performedBy String   @map("performed_by") @db.VarChar(50) // User ID
+  ipAddress   String?  @map("ip_address") @db.VarChar(45) // IPv4 or IPv6
+  metadata    String?  @db.Text // Additional context as JSON
+  timestamp   DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([entityType, entityId], map: "idx_audit_entity")
+  @@index([performedBy], map: "idx_audit_user")
+  @@index([timestamp], map: "idx_audit_timestamp")
+  @@index([action], map: "idx_audit_action")
+  @@map("audit_logs")
+}
+

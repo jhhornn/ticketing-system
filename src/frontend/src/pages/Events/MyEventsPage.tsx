@@ -5,8 +5,10 @@ import { EventListItem } from '../../components/EventListItem';
 import { EventSectionsModal } from '../../components/EventSectionsModal';
 import { DiscountManagementModal } from '../../components/DiscountManagementModal';
 import { CreateEventModal } from '../../components/CreateEventModal';
+import { EditEventModal } from '../../components/EditEventModal';
 import { EventDetailsModal } from '../../components/EventDetailsModal';
 import { Search, Calendar, Plus, Archive, Grid3x3, List } from 'lucide-react';
+import { Button } from '../../components/ui';
 
 export const MyEventsPage: React.FC = () => {
     const [events, setEvents] = useState<Event[]>([]);
@@ -17,6 +19,7 @@ export const MyEventsPage: React.FC = () => {
         return (localStorage.getItem('eventsViewMode') as 'grid' | 'list') || 'grid';
     });
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [editModalEvent, setEditModalEvent] = useState<Event | null>(null);
     const [sectionsModalState, setSectionsModalState] = useState<{
         isOpen: boolean;
         eventId: number | null;
@@ -87,13 +90,13 @@ export const MyEventsPage: React.FC = () => {
                         Manage your events and ticket sections
                     </p>
                 </div>
-                <button
+                <Button
                     onClick={() => setIsCreateModalOpen(true)}
-                    className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
+                    size="lg"
+                    icon={<Plus className="w-5 h-5" />}
                 >
-                    <Plus className="w-5 h-5" />
                     Create Event
-                </button>
+                </Button>
             </div>
 
             {/* Search Bar */}
@@ -165,6 +168,7 @@ export const MyEventsPage: React.FC = () => {
                                             event={event}
                                             showBookButton={false}
                                             showStats={true}
+                                            onEditEvent={() => setEditModalEvent(event)}
                                             onManageSections={() => {
                                                 setSectionsModalState({
                                                     isOpen: true,
@@ -190,6 +194,7 @@ export const MyEventsPage: React.FC = () => {
                                             key={event.id}
                                             event={event}
                                             showStats={true}
+                                            onEditEvent={() => setEditModalEvent(event)}
                                             onManageSections={() => {
                                                 setSectionsModalState({
                                                     isOpen: true,
@@ -232,6 +237,7 @@ export const MyEventsPage: React.FC = () => {
                                             event={event}
                                             showBookButton={false}
                                             showStats={true}
+                                            onEditEvent={() => setEditModalEvent(event)}
                                             onManageSections={() => {
                                                 setSectionsModalState({
                                                     isOpen: true,
@@ -257,6 +263,7 @@ export const MyEventsPage: React.FC = () => {
                                             key={event.id}
                                             event={event}
                                             showStats={true}
+                                            onEditEvent={() => setEditModalEvent(event)}
                                             onManageSections={() => {
                                                 setSectionsModalState({
                                                     isOpen: true,
@@ -326,6 +333,16 @@ export const MyEventsPage: React.FC = () => {
                 onClose={() => setIsCreateModalOpen(false)}
                 onSuccess={() => {
                     setIsCreateModalOpen(false);
+                    loadMyEvents();
+                }}
+            />
+
+            <EditEventModal
+                isOpen={!!editModalEvent}
+                event={editModalEvent}
+                onClose={() => setEditModalEvent(null)}
+                onSuccess={() => {
+                    setEditModalEvent(null);
                     loadMyEvents();
                 }}
             />

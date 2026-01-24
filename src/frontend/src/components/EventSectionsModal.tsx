@@ -1,7 +1,8 @@
 // src/frontend/src/components/EventSectionsModal.tsx
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Save } from 'lucide-react';
+import { X, Plus, Trash2, Save, Edit } from 'lucide-react';
 import { EventSectionsService, type EventSection, type CreateSectionData, type SectionType } from '../services/EventSectionsService';
+import { useModal } from '../context/ModalContext';
 
 interface EventSectionsModalProps {
   eventId: number;
@@ -16,10 +17,12 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { showAlert, showConfirm } = useModal();
   const [sections, setSections] = useState<EventSection[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [editingSection, setEditingSection] = useState<EventSection | null>(null);
 
   // Form state
   const [formData, setFormData] = useState<CreateSectionData>({
@@ -70,15 +73,34 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this section?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Section',
+      message: 'Are you sure you want to delete this section? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'error'
+    });
+
+    if (!confirmed) return;
 
     try {
       setError(null);
       await EventSectionsService.delete(id);
       await loadSections();
+      showAlert({
+        type: 'success',
+        title: 'Success',
+        message: 'Section deleted successfully'
+      });
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to delete section');
+      const errorMessage = error.response?.data?.message || 'Failed to delete section';
+      setError(errorMessage);
+      showAlert({
+        type: 'error',
+        title: 'Error',
+        message: errorMessage
+      });
     }
   };
 
@@ -93,6 +115,54 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
       rows: 10,
       seatsPerRow: 10,
     });
+    setEditingSection(null);
+  };
+
+  const handleEdit = (section: EventSection) => {
+    setEditingSection(section);
+    setFormData({
+      eventId,
+      name: section.name,
+      type: section.type,
+      price: section.price,
+      totalCapacity: section.totalCapacity,
+      generateSeats: false,
+      rows: 10,
+      seatsPerRow: 10,
+    });
+    setIsAdding(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingSection) return;
+
+    try {
+      setError(null);
+      await EventSectionsService.update(editingSection.id, {
+        name: formData.name,
+        price: formData.price,
+        totalCapacity: formData.totalCapacity,
+      });
+      
+      await loadSections();
+      setIsAdding(false);
+      resetForm();
+      
+      showAlert({
+        type: 'success',
+        title: 'Success',
+        message: 'Section updated successfully'
+      });
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      const errorMessage = error.response?.data?.message || 'Failed to update section';
+      setError(errorMessage);
+      showAlert({
+        type: 'error',
+        title: 'Error',
+        message: errorMessage
+      });
+    }
   };
 
   const handleTypeChange = (type: SectionType) => {
@@ -221,14 +291,23 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
                           </div>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleDelete(section.id)}
-                        className="text-red-600 hover:text-red-700 p-2 rounded hover:bg-red-50 transition-colors"
-                        title="Delete section"
-                        disabled={section.allocated > 0}
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(section)}
+                          className="text-blue-600 hover:text-blue-700 p-2 rounded hover:bg-blue-50 transition-colors"
+                          title="Edit section"
+                        >
+                          <Edit size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(section.id)}
+                          className="text-red-600 hover:text-red-700 p-2 rounded hover:bg-red-50 transition-colors"
+                          title="Delete section"
+                          disabled={section.allocated > 0}
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                     {section.allocated > 0 && (
                       <p className="text-xs text-amber-600 mt-2">
@@ -251,10 +330,12 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
             </>
           )}
 
-          {/* Add Section Form */}
+          {/* Add/Edit Section Form */}
           {isAdding && (
             <div className="border-2 border-blue-300 rounded-lg p-6 bg-blue-50">
-              <h3 className="font-semibold text-lg mb-4">Add New Section</h3>
+              <h3 className="font-semibold text-lg mb-4">
+                {editingSection ? 'Edit Section' : 'Add New Section'}
+              </h3>
 
               <div className="space-y-4">
                 <div>
@@ -270,41 +351,43 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Section Type *
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleTypeChange('GENERAL')}
-                      className={`p-4 border-2 rounded-lg text-left transition-all ${
-                        formData.type === 'GENERAL'
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-300 hover:border-blue-300'
-                      }`}
-                    >
-                      <div className="font-semibold">General Admission</div>
-                      <div className="text-xs text-gray-600 mt-1">
-                        First come, first served
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTypeChange('ASSIGNED')}
-                      className={`p-4 border-2 rounded-lg text-left transition-all ${
-                        formData.type === 'ASSIGNED'
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-gray-300 hover:border-purple-300'
-                      }`}
-                    >
-                      <div className="font-semibold">Assigned Seating</div>
-                      <div className="text-xs text-gray-600 mt-1">
-                        Specific seat selection
-                      </div>
-                    </button>
+                {!editingSection && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Section Type *
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleTypeChange('GENERAL')}
+                        className={`p-4 border-2 rounded-lg text-left transition-all ${
+                          formData.type === 'GENERAL'
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-300 hover:border-blue-300'
+                        }`}
+                      >
+                        <div className="font-semibold">General Admission</div>
+                        <div className="text-xs text-gray-600 mt-1">
+                          First come, first served
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleTypeChange('ASSIGNED')}
+                        className={`p-4 border-2 rounded-lg text-left transition-all ${
+                          formData.type === 'ASSIGNED'
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-300 hover:border-purple-300'
+                        }`}
+                      >
+                        <div className="font-semibold">Assigned Seating</div>
+                        <div className="text-xs text-gray-600 mt-1">
+                          Specific seat selection
+                        </div>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -331,10 +414,15 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Total Capacity *
+                      {editingSection && editingSection.allocated > 0 && (
+                        <span className="text-xs text-amber-600 ml-2">
+                          (Min: {editingSection.allocated} - tickets already sold)
+                        </span>
+                      )}
                     </label>
                     <input
                       type="number"
-                      min="1"
+                      min={editingSection?.allocated || 1}
                       value={formData.totalCapacity}
                       onChange={(e) => {
                         const value = e.target.value;
@@ -346,16 +434,23 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
                       }}
                       onBlur={() => {
                         // Set minimum value on blur if empty
-                        if (formData.totalCapacity === 0) {
-                          handleCapacityChange(1);
+                        const minCapacity = editingSection?.allocated || 1;
+                        if (formData.totalCapacity < minCapacity) {
+                          handleCapacityChange(minCapacity);
                         }
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={editingSection?.allocated === editingSection?.totalCapacity}
                     />
+                    {editingSection?.allocated === editingSection?.totalCapacity && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Cannot change capacity - all seats are sold
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                {formData.type === 'ASSIGNED' && formData.generateSeats && (
+                {!editingSection && formData.type === 'ASSIGNED' && formData.generateSeats && (
                   <div className="bg-white border border-purple-200 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <input
@@ -418,12 +513,12 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
 
                 <div className="flex gap-3 pt-2">
                   <button
-                    onClick={handleCreate}
-                    disabled={!formData.name || formData.totalCapacity < 1}
+                    onClick={editingSection ? handleUpdate : handleCreate}
+                    disabled={!formData.name || formData.totalCapacity < (editingSection?.allocated || 1)}
                     className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                   >
                     <Save size={18} />
-                    Create Section
+                    {editingSection ? 'Update Section' : 'Create Section'}
                   </button>
                   <button
                     onClick={() => {

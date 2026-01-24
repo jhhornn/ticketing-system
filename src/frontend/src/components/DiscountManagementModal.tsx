@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, ToggleLeft, ToggleRight, Calendar, Users, Percent, DollarSign } from 'lucide-react';
 import { DiscountsService, type Discount, type CreateDiscountData } from '../services/discounts';
+import { useModal } from '../context/ModalContext';
 
 interface DiscountManagementModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export const DiscountManagementModal: React.FC<DiscountManagementModalProps> = (
   eventId,
   eventName,
 }) => {
+  const { showAlert, showConfirm } = useModal();
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [loading, setLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -58,8 +60,17 @@ export const DiscountManagementModal: React.FC<DiscountManagementModalProps> = (
         type: 'PERCENTAGE',
         eventId,
       });
+      showAlert({
+        type: 'success',
+        title: 'Success',
+        message: 'Discount created successfully'
+      });
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to create discount');
+      showAlert({
+        type: 'error',
+        title: 'Error',
+        message: error.response?.data?.message || 'Failed to create discount'
+      });
     }
   };
 
@@ -71,18 +82,45 @@ export const DiscountManagementModal: React.FC<DiscountManagementModalProps> = (
         await DiscountsService.activate(parseInt(discount.id));
       }
       await loadDiscounts();
+      showAlert({
+        type: 'success',
+        title: 'Success',
+        message: `Discount ${discount.isActive ? 'deactivated' : 'activated'} successfully`
+      });
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to toggle discount');
+      showAlert({
+        type: 'error',
+        title: 'Error',
+        message: error.response?.data?.message || 'Failed to toggle discount'
+      });
     }
   };
 
   const handleDeleteDiscount = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this discount?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Discount',
+      message: 'Are you sure you want to delete this discount? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'error'
+    });
+
+    if (!confirmed) return;
+
     try {
       await DiscountsService.delete(parseInt(id));
       await loadDiscounts();
+      showAlert({
+        type: 'success',
+        title: 'Success',
+        message: 'Discount deleted successfully'
+      });
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to delete discount');
+      showAlert({
+        type: 'error',
+        title: 'Error',
+        message: error.response?.data?.message || 'Failed to delete discount'
+      });
     }
   };
 
