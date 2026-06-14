@@ -1,8 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { Calendar, MapPin, Users, Ticket, Tag, CheckCircle2, XCircle, Info } from 'lucide-react';
+import { Calendar, MapPin, Users, Ticket, Tag, Edit, LayoutList, Percent, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { ActionButton } from './ui';
 
 interface EventCardProps {
     event: {
@@ -16,87 +15,54 @@ interface EventCardProps {
         isFree: boolean;
         status?: string;
         saleStartTime?: string | Date | null;
-        mainImageUrl?: string; // Future proofing
+        mainImageUrl?: string;
         hasActiveDiscounts?: boolean;
+        isPopular?: boolean;
     };
     onManageSections?: () => void;
     onManageDiscounts?: () => void;
     onEditEvent?: () => void;
     onViewDetails?: () => void;
     showBookButton?: boolean;
-    showStats?: boolean; // Show event stats (for My Events page only)
+    showActions?: boolean; // New prop to control visibility of management actions
 }
 
-export const EventCard: React.FC<EventCardProps> = ({ event, onManageSections, onManageDiscounts, onEditEvent, onViewDetails, showBookButton = true, showStats = false }) => {
+export const EventCard: React.FC<EventCardProps> = ({ 
+    event, 
+    onManageSections, 
+    onManageDiscounts, 
+    onEditEvent, 
+    onViewDetails,
+    showBookButton = true, 
+    showActions = false // Default to false
+}) => {
     const eventDate = new Date(event.eventDate);
     const venue = event.venueName || event.customVenue || 'TBA';
     const now = new Date();
     const isPastEvent = eventDate < now;
-    const saleStartTime = event.saleStartTime ? new Date(event.saleStartTime) : null;
-    const isOnSale = saleStartTime && saleStartTime <= now && !isPastEvent;
-    
-    // Determine event category
+
+    const availabilityPercent = event.totalSeats > 0 ? (event.availableSeats / event.totalSeats) * 100 : 0;
+    const isLowAvailability = availabilityPercent > 0 && availabilityPercent < 20;
+
     const getEventCategory = () => {
-        if (isPastEvent) return { label: 'Past Event', color: 'bg-gray-500' };
-        if (event.status === 'COMPLETED') return { label: 'Completed', color: 'bg-purple-500' };
-        if (event.status === 'SOLD_OUT') return { label: 'Sold Out', color: 'bg-red-500' };
-        if (event.status === 'CANCELLED') return { label: 'Cancelled', color: 'bg-gray-500' };
-        if (isOnSale || event.status === 'ON_SALE') return { label: 'On Sale', color: 'bg-green-500' };
-        return { label: 'Upcoming', color: 'bg-blue-500' };
+        if (isPastEvent) return { label: 'Past', color: 'bg-muted text-muted-foreground' };
+        if (event.status === 'SOLD_OUT') return { label: 'Sold Out', color: 'bg-destructive text-destructive-foreground' };
+        return { label: format(eventDate, 'MMM d'), color: 'bg-primary text-primary-foreground' };
     };
-    
+
     const category = getEventCategory();
 
-    // Use a placeholder gradient if no image (can be replaced with generate_image later or real data)
-    const gradients = [
-        'from-pink-500 via-red-500 to-yellow-500',
-        'from-blue-400 via-indigo-500 to-purple-500',
-        'from-green-400 via-teal-500 to-blue-500',
-        'from-indigo-400 via-purple-500 to-pink-500'
-    ];
-    // Deterministic gradient based on ID
-    const gradient = gradients[event.id % gradients.length];
-
     return (
-        <div className="group relative bg-card text-card-foreground rounded-xl border shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full hover:scale-[1.02]">
-            {/* Image Header / Placeholder */}
-            <div className={`h-48 w-full bg-gradient-to-br ${gradient} p-6 relative overflow-hidden ${
-                isPastEvent ? 'opacity-75' : ''
-            }`}>
-                {/* Status Badge */}
-                <div className={`absolute top-4 left-4 ${category.color} text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1`}>
-                    {category.label}
-                </div>
-                
-                {/* Discount Badge */}
-                {event.hasActiveDiscounts && (
-                    <div className="absolute top-16 left-4 bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1 animate-pulse">
-                        <Tag className="w-3 h-3" />
-                        Discounts Available
+        <div className="group bg-card rounded-xl border shadow-soft transition-all duration-300 hover:shadow-medium hover:-translate-y-1 flex flex-col h-full overflow-hidden">
+            <div className="p-5 flex-1 flex flex-col">
+                <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-xl font-bold font-poppins pr-4 line-clamp-2">{event.eventName}</h3>
+                    <div className={`flex-shrink-0 ${category.color} px-3 py-1.5 rounded-md text-xs font-bold`}>
+                        {category.label}
                     </div>
-                )}
-                
-                {/* Glassmorphism Date Badge */}
-                <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md text-white px-3 py-1 rounded-full text-sm font-semibold border border-white/30 shadow-sm">
-                    {format(eventDate, 'MMM d')}
                 </div>
 
-                {/* Event Title Overlay */}
-                <div className="absolute bottom-4 left-4 right-4">
-                    <h3 className="text-white text-xl font-bold tracking-tight drop-shadow-md line-clamp-2">
-                        {event.eventName}
-                    </h3>
-                </div>
-
-                {/* Shine effect on hover */}
-                <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300" />
-            </div>
-
-            <div className={`p-5 flex-1 flex flex-col gap-4 ${
-                isPastEvent ? 'opacity-75' : ''
-            }`}>
-                {/* Details */}
-                <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="space-y-3 text-sm text-muted-foreground mb-4">
                     <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-primary" />
                         <span>{format(eventDate, 'EEEE, h:mm a')}</span>
@@ -105,114 +71,85 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onManageSections, o
                         <MapPin className="w-4 h-4 text-primary" />
                         <span className="line-clamp-1">{venue}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-primary" />
-                        <span>{event.availableSeats} / {event.totalSeats} seats available</span>
-                    </div>
-                    
-                    {/* Event Stats - Only show on My Events page */}
-                    {showStats && (isPastEvent || event.status === 'COMPLETED') && (
-                        <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="text-gray-500">Tickets Sold:</span>
-                                <span className="font-semibold text-gray-700">
-                                    {event.totalSeats - event.availableSeats} / {event.totalSeats}
-                                </span>
-                            </div>
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="text-gray-500">Attendance Rate:</span>
-                                <span className="font-semibold text-gray-700">
-                                    {Math.round(((event.totalSeats - event.availableSeats) / event.totalSeats) * 100)}%
-                                </span>
-                            </div>
-                            {event.status === 'COMPLETED' && (
-                                <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
-                                    <CheckCircle2 className="w-3 h-3" />
-                                    Event Completed
-                                </div>
-                            )}
-                            {event.status === 'CANCELLED' && (
-                                <div className="flex items-center gap-1 text-xs text-red-600 font-medium">
-                                    <XCircle className="w-3 h-3" />
-                                    Event Cancelled
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
 
-                {/* Footer Actions - Modern grouped design with full opacity */}
-                <div className="mt-auto pt-4 space-y-3 relative z-10 opacity-100">
-                    {/* Management Actions Group */}
-                    {(onManageSections || onManageDiscounts || onEditEvent) && (
-                        <div className={`grid ${onManageSections && onManageDiscounts && onEditEvent ? 'grid-cols-3' : onManageSections && onManageDiscounts ? 'grid-cols-2' : onEditEvent && (onManageSections || onManageDiscounts) ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+                <div className="mt-auto">
+                    <div className="flex items-center justify-between text-sm mb-4">
+                        <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-primary" />
+                            <span>{event.availableSeats} / {event.totalSeats} seats</span>
+                        </div>
+                        {event.isFree && (
+                            <div className="flex items-center gap-1 text-green-500 font-semibold">
+                                <Tag className="w-4 h-4" />
+                                <span>Free</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {isLowAvailability && !isPastEvent && event.status !== 'SOLD_OUT' && (
+                        <div className="bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 px-3 py-1.5 rounded-md text-xs font-bold mb-4 text-center">
+                            Only {event.availableSeats} tickets left!
+                        </div>
+                    )}
+                    
+                    {showActions ? (
+                        <div className="grid grid-cols-2 gap-2 mt-4">
                             {onEditEvent && (
-                                <ActionButton
-                                    variant="edit"
-                                    onClick={onEditEvent}
-                                    size="sm"
-                                    title="Edit event details"
-                                    showLabel={false}
-                                />
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onEditEvent(); }}
+                                    className="inline-flex items-center justify-center gap-2 px-3 py-2 border rounded-lg text-sm font-semibold hover:bg-secondary transition-colors"
+                                >
+                                    <Edit className="w-4 h-4" /> Edit
+                                </button>
                             )}
                             {onManageSections && (
-                                <ActionButton
-                                    variant="sections"
-                                    onClick={onManageSections}
-                                    size="sm"
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onManageSections(); }}
                                     disabled={isPastEvent || event.status === 'COMPLETED' || event.status === 'CANCELLED'}
-                                    title="Manage event sections and seating"
-                                    showLabel={false}
-                                />
+                                    className="inline-flex items-center justify-center gap-2 px-3 py-2 border rounded-lg text-sm font-semibold hover:bg-secondary transition-colors disabled:opacity-50"
+                                >
+                                    <LayoutList className="w-4 h-4" /> Sections
+                                </button>
                             )}
                             {onManageDiscounts && (
-                                <ActionButton
-                                    variant="discounts"
-                                    onClick={onManageDiscounts}
-                                    size="sm"
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onManageDiscounts(); }}
                                     disabled={isPastEvent || event.status === 'COMPLETED' || event.status === 'CANCELLED'}
-                                    title="Manage event discounts and promotions"
-                                    showLabel={false}
-                                />
+                                    className="inline-flex items-center justify-center gap-2 px-3 py-2 border rounded-lg text-sm font-semibold hover:bg-secondary transition-colors disabled:opacity-50"
+                                >
+                                    <Percent className="w-4 h-4" /> Discounts
+                                </button>
+                            )}
+                            {onViewDetails && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onViewDetails(); }}
+                                    className="inline-flex items-center justify-center gap-2 px-3 py-2 border rounded-lg text-sm font-semibold hover:bg-secondary transition-colors"
+                                >
+                                    <Info className="w-4 h-4" /> Details
+                                </button>
                             )}
                         </div>
-                    )}
-                    {/* View Details - Primary Action */}
-                    {onViewDetails && (
-                        <button
-                            onClick={onViewDetails}
-                            title="View detailed analytics and bookings"
-                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 active:scale-95 transition-all duration-300 text-sm shadow-soft hover:shadow-glow"
-                        >
-                            <Info className="w-4 h-4" />
-                            <span>View Details & Bookings</span>
-                        </button>
-                    )}
-                    <div className="flex items-center justify-between border-t border-border/50 pt-4">
-                        <div className="text-lg font-bold text-foreground">
-                            Ticketed Event
-                        </div>
-
-                        {showBookButton && (
+                    ) : (
+                        showBookButton && (
                             isPastEvent ? (
                                 <button
                                     disabled
-                                    className="inline-flex items-center gap-2 bg-gray-400 text-white px-4 py-2 rounded-lg font-medium cursor-not-allowed opacity-60"
+                                    className="w-full inline-flex items-center justify-center gap-2 bg-muted text-muted-foreground px-4 py-2.5 rounded-lg font-semibold cursor-not-allowed"
                                 >
-                                    <Ticket className="w-4 h-4" />
                                     Event Ended
                                 </button>
                             ) : (
                                 <Link
                                     to={`/events/${event.id}`}
-                                    className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shadow-sm cursor-pointer"
+                                    className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-lg font-semibold hover:bg-primary/90 transition-colors"
                                 >
                                     <Ticket className="w-4 h-4" />
                                     Book Now
                                 </Link>
                             )
-                        )}
-                    </div>
+                        )
+                    )}
                 </div>
             </div>
         </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useModal } from '../../context/ModalContext';
+import { useAuth } from '../../hooks/useAuth';
+import { useModal } from '../../hooks/useModal';
 import { useNavigate } from 'react-router-dom';
 import { AdvertisementsService, type Advertisement, type AdStatus } from '../../services/advertisements';
 import { Plus, Edit2, Trash2, Eye, EyeOff, BarChart3, MousePointer, Image as ImageIcon } from 'lucide-react';

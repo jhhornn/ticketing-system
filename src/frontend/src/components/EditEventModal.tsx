@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { EventsService, EventStatus, type Event } from '../services/events';
-import { X, Calendar, MapPin, Users, Clock, AlertCircle } from 'lucide-react';
-import { useModal } from '../context/ModalContext';
+import { X, Calendar, MapPin, Users, Clock, AlertCircle, Ticket } from 'lucide-react';
+import { useModal } from '../hooks/useModal';
+import { ModalActionButton } from './ui';
 
 interface EditEventModalProps {
   isOpen: boolean;
@@ -31,15 +32,12 @@ export const EditEventModal: React.FC<EditEventModalProps> = ({
 
   useEffect(() => {
     if (isOpen && event) {
-      // Initialize form with event data
       setFormData({
         eventName: event.eventName,
         eventDate: new Date(event.eventDate).toISOString().slice(0, 16),
         saleStartTime: event.saleStartTime ? new Date(event.saleStartTime).toISOString().slice(0, 16) : '',
         status: event.status,
       });
-
-      // Check if event has bookings
       setHasBookings((event.totalSeats || 0) - (event.availableSeats || 0) > 0);
     }
   }, [isOpen, event]);
@@ -52,32 +50,19 @@ export const EditEventModal: React.FC<EditEventModalProps> = ({
     setError(null);
 
     try {
-      // Only send changed fields
       const updateData: UpdateEventData = {};
-      if (formData.eventName !== event.eventName) {
-        updateData.eventName = formData.eventName;
-      }
-      if (formData.eventDate && new Date(formData.eventDate).getTime() !== new Date(event.eventDate).getTime()) {
-        updateData.eventDate = formData.eventDate;
-      }
+      if (formData.eventName !== event.eventName) updateData.eventName = formData.eventName;
+      if (formData.eventDate && new Date(formData.eventDate).getTime() !== new Date(event.eventDate).getTime()) updateData.eventDate = formData.eventDate;
       if (formData.saleStartTime) {
         const newSaleTime = new Date(formData.saleStartTime).getTime();
         const oldSaleTime = event.saleStartTime ? new Date(event.saleStartTime).getTime() : 0;
-        if (newSaleTime !== oldSaleTime) {
-          updateData.saleStartTime = formData.saleStartTime;
-        }
+        if (newSaleTime !== oldSaleTime) updateData.saleStartTime = formData.saleStartTime;
       }
-      if (formData.status !== event.status) {
-        updateData.status = formData.status;
-      }
+      if (formData.status !== event.status) updateData.status = formData.status;
 
       await EventsService.update(event.id, updateData);
       
-      showAlert({
-        type: 'success',
-        title: 'Success',
-        message: 'Event updated successfully'
-      });
+      showAlert({ type: 'success', title: 'Success', message: 'Event updated successfully' });
       
       onSuccess();
       onClose();
@@ -85,11 +70,7 @@ export const EditEventModal: React.FC<EditEventModalProps> = ({
       const error = err as { response?: { data?: { message?: string } } };
       const errorMessage = error.response?.data?.message || 'Failed to update event';
       setError(errorMessage);
-      showAlert({
-        type: 'error',
-        title: 'Error',
-        message: errorMessage
-      });
+      showAlert({ type: 'error', title: 'Error', message: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -98,131 +79,68 @@ export const EditEventModal: React.FC<EditEventModalProps> = ({
   if (!isOpen || !event) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
-          <h2 className="text-2xl font-bold text-gray-900">Edit Event</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X size={24} />
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-card w-full max-w-lg rounded-xl border shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="flex justify-between items-center p-6 border-b">
+          <h2 className="text-2xl font-bold font-poppins">Edit Event</h2>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-secondary">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6">
+          {error && <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-md text-sm">{error}</div>}
 
-          {/* Important Notice */}
           {hasBookings && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                <div className="text-sm">
-                  <p className="font-semibold text-amber-900 mb-1">Event has bookings</p>
-                  <ul className="text-amber-700 space-y-1">
-                    <li>• Venue and capacity cannot be changed</li>
-                    <li>• Be careful changing the event date</li>
-                    <li>• Status changes will affect ticket holders</li>
-                  </ul>
-                </div>
+            <div className="bg-orange-50 border border-orange-200 text-orange-700 p-4 rounded-lg flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold mb-1">Warning: This event has bookings!</p>
+                <ul className="list-disc list-inside text-sm space-y-0.5">
+                  <li>Venue and capacity cannot be changed.</li>
+                  <li>Changing the date might affect existing ticket holders.</li>
+                  <li>Status changes will be visible to attendees.</li>
+                </ul>
               </div>
             </div>
           )}
 
-          {/* Read-only fields */}
-          <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
-            <h3 className="font-semibold text-gray-700">Event Details (Read-only)</h3>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Venue</label>
-              <div className="flex items-center gap-2 text-gray-900">
-                <MapPin size={18} />
-                <span>{event.venueName || event.customVenue || 'No venue specified'}</span>
-              </div>
+          <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
+            <h3 className="text-lg font-bold">Event Overview</h3>
+            <div className="flex items-center gap-3 text-sm">
+              <MapPin className="w-4 h-4 text-primary" />
+              <span>{event.venueName || event.customVenue || 'No venue specified'}</span>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Total Capacity</label>
-              <div className="flex items-center gap-2 text-gray-900">
-                <Users size={18} />
-                <span>{event.totalSeats} seats</span>
-              </div>
+            <div className="flex items-center gap-3 text-sm">
+              <Users className="w-4 h-4 text-primary" />
+              <span>Total Seats: {event.totalSeats}</span>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Bookings</label>
-              <div className="flex items-center gap-2 text-gray-900">
-                <Users size={18} />
-                <span>{(event.totalSeats || 0) - (event.availableSeats || 0)} tickets sold</span>
-              </div>
+            <div className="flex items-center gap-3 text-sm">
+              <Ticket className="w-4 h-4 text-primary" />
+              <span>Tickets Sold: {(event.totalSeats || 0) - (event.availableSeats || 0)}</span>
             </div>
           </div>
 
-          {/* Editable fields */}
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Event Name *
-              </label>
-              <input
-                type="text"
-                value={formData.eventName || ''}
-                onChange={(e) => setFormData({ ...formData, eventName: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
+            <div className="space-y-2">
+              <label htmlFor="eventName" className="text-sm font-semibold">Event Name</label>
+              <input type="text" id="eventName" name="eventName" value={formData.eventName || ''} onChange={(e) => setFormData({ ...formData, eventName: e.target.value })} required className="w-full bg-input rounded-md border px-3 py-2 text-sm" />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Event Date & Time *
-              </label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="datetime-local"
-                  value={formData.eventDate || ''}
-                  onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
+            <div className="space-y-2">
+              <label htmlFor="eventDate" className="text-sm font-semibold flex items-center gap-2"><Calendar className="w-4 h-4" />Event Date & Time</label>
+              <input type="datetime-local" id="eventDate" name="eventDate" value={formData.eventDate || ''} onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })} required className="w-full bg-input rounded-md border px-3 py-2 text-sm" />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Sale Start Time
-              </label>
-              <div className="relative">
-                <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="datetime-local"
-                  value={formData.saleStartTime || ''}
-                  onChange={(e) => setFormData({ ...formData, saleStartTime: e.target.value })}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Leave empty to make tickets available immediately
-              </p>
+            <div className="space-y-2">
+              <label htmlFor="saleStartTime" className="text-sm font-semibold flex items-center gap-2"><Clock className="w-4 h-4" />Sale Start Time</label>
+              <input type="datetime-local" id="saleStartTime" name="saleStartTime" value={formData.saleStartTime || ''} onChange={(e) => setFormData({ ...formData, saleStartTime: e.target.value })} className="w-full bg-input rounded-md border px-3 py-2 text-sm" />
+              <p className="text-xs text-muted-foreground">Leave empty for immediate ticket sales.</p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Event Status
-              </label>
-              <select
-                value={formData.status || EventStatus.DRAFT}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as EventStatus })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
+            <div className="space-y-2">
+              <label htmlFor="status" className="text-sm font-semibold">Event Status</label>
+              <select id="status" name="status" value={formData.status || EventStatus.DRAFT} onChange={(e) => setFormData({ ...formData, status: e.target.value as EventStatus })} className="w-full bg-input rounded-md border px-3 py-2 text-sm">
                 <option value={EventStatus.DRAFT}>Draft</option>
                 <option value={EventStatus.ON_SALE}>On Sale</option>
                 <option value={EventStatus.SOLD_OUT}>Sold Out</option>
@@ -232,23 +150,26 @@ export const EditEventModal: React.FC<EditEventModalProps> = ({
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="flex gap-3 pt-4 border-t">
-            <button
+          <div className="pt-4 flex gap-3">
+            <ModalActionButton
               type="button"
+              variant="cancel"
+              fullWidth
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               disabled={loading}
+              className="rounded-md text-sm"
             >
               Cancel
-            </button>
-            <button
+            </ModalActionButton>
+            <ModalActionButton
               type="submit"
-              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              variant="primary"
+              fullWidth
+              className="rounded-md text-sm disabled:opacity-50"
               disabled={loading}
             >
               {loading ? 'Updating...' : 'Update Event'}
-            </button>
+            </ModalActionButton>
           </div>
         </form>
       </div>

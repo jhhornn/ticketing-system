@@ -5,27 +5,25 @@ import { ReservationsService } from '../../services/reservations';
 import { DiscountsService } from '../../services/discounts';
 import { SeatMap } from './SeatMap';
 import { ErrorModal } from '../../components/ErrorModal';
-import { useModal } from '../../context/ModalContext';
 import { format } from 'date-fns';
 import { useVenueSelection } from '../../hooks/useVenueSelection';
-import { ArrowLeft, Tag, Check, X } from 'lucide-react';
+import { ArrowLeft, Tag, Check, X, Info, Calendar, MapPin } from 'lucide-react';
+import { useReservationErrorHandler } from '../../hooks/useErrorHandler';
+import { ErrorDisplay } from '../../components/ErrorDisplay';
 
 export const EventDetailsPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { showAlert } = useModal();
 
-    // Data State
     const [event, setEvent] = useState<Event | null>(null);
     const [inventory, setInventory] = useState<EventInventory | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [purchaseEligibility, setPurchaseEligibility] = useState<{ 
-        canPurchase: boolean; 
-        reason?: string 
+    const [purchaseEligibility, setPurchaseEligibility] = useState<{
+        canPurchase: boolean;
+        reason?: string
     } | null>(null);
 
-    // Discount State
     const [discountCode, setDiscountCode] = useState('');
     const [validatingDiscount, setValidatingDiscount] = useState(false);
     const [appliedDiscount, setAppliedDiscount] = useState<{
@@ -35,7 +33,6 @@ export const EventDetailsPage: React.FC = () => {
     } | null>(null);
     const [discountError, setDiscountError] = useState<string | null>(null);
 
-    // Venue Selection Hook
     const {
         selectedSection,
         selectedSectionId,
@@ -76,23 +73,7 @@ export const EventDetailsPage: React.FC = () => {
             setInventory(inventoryData);
             setPurchaseEligibility(eligibilityData);
 
-            // Auto-select first section with availability if possible? 
-            // The hook selects first section by default if initialized with sections.
-            // Since we load sections async, we might need to manually trigger selection if hook doesn't auto-update on prop change?
-            // The hook uses: initialSectionId || (sections.length > 0 ? sections[0].id : null)
-            // But this is only for initial state.
-            // We might need to select first section once loaded if none selected.
-            // Actually, simply passing sections to hook will update derived state, but selectedSectionId state might stick to null.
-            // Let's force select first section if loaded.
-            if (inventoryData.sections.length > 0) {
-                // But we can't call selectSection here easily inside async without refs or simpler logic.
-                // Better: Pass `initialSectionId` to hook only when inventory is loaded?
-                // Current hook implementation initializes state ONCE.
-                // We should probably key the hook or just handle selection in UI.
-                // Let's rely on the user or modify hook to auto-select?
-                // Simpler: Key the main content or handle selection logic. 
-                // Actually, if selectedSectionId is null, UI will show nothing.
-            }
+            // No-op: inventoryData.sections.length > 0
 
         } catch (err: unknown) {
             console.error('Error loading event details:', err);
@@ -103,7 +84,6 @@ export const EventDetailsPage: React.FC = () => {
         }
     };
 
-    // Effect to auto-select first section when inventory loads
     useEffect(() => {
         if (inventory?.sections && inventory.sections.length > 0 && !selectedSectionId) {
             selectSection(inventory.sections[0].id);
@@ -130,9 +110,16 @@ export const EventDetailsPage: React.FC = () => {
                 setAppliedDiscount(null);
                 setDiscountError(result.reason || 'Invalid discount code');
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             setAppliedDiscount(null);
-            setDiscountError(error.response?.data?.message || 'Failed to validate discount code');
+            if (typeof error === 'object' && error !== null && 'response' in error) {
+                // @ts-expect-error: dynamic error shape
+                setDiscountError(error.response?.data?.message || 'Failed to validate discount code');
+            } else if (error instanceof Error) {
+                setDiscountError(error.message);
+            } else {
+                setDiscountError('Failed to validate discount code');
+            }
         } finally {
             setValidatingDiscount(false);
         }
@@ -146,9 +133,9 @@ export const EventDetailsPage: React.FC = () => {
 
     const calculatePrice = () => {
         if (!selectedSection) return 0;
-        
-        const basePrice = isGA 
-            ? selectedSection.price * quantity 
+
+        const basePrice = isGA
+            ? selectedSection.price * quantity
             : selectedSection.price * selectedSeatIds.length;
 
         if (!appliedDiscount || basePrice === 0) return basePrice;
@@ -163,90 +150,59 @@ export const EventDetailsPage: React.FC = () => {
         return Math.max(0, basePrice - discountAmount);
     };
 
-    const getDiscountAmount = () => {
-        if (!selectedSection || !appliedDiscount) return 0;
-        
-        const basePrice = isGA 
-            ? selectedSection.price * quantity 
-            : selectedSection.price * selectedSeatIds.length;
+    const { error: reservationError, handleError: handleReservationError, clearError: clearReservationError, isRetrying } = useReservationErrorHandler(() => {
+        loadData(parseInt(id!));
+    });
 
-        if (basePrice === 0) return 0;
+    const handleReservation = async (arg?: unknown) => {
+        const isRetry = arg === true;
 
-        if (appliedDiscount.type === 'PERCENTAGE') {
-            return (basePrice * appliedDiscount.amount) / 100;
-        }
-        return Math.min(appliedDiscount.amount, basePrice);
-    };
-
-
-    const handleReservation = async () => {
         if (!event || !selectedSection) return;
+
+        if (!isRetry) {
+            clearReservationError();
+            setError(null);
+        }
 
         try {
             const payload = getCartPayload();
             if (!payload) return;
-
-            // Transform payload for backend DTO
-            // Backend expects: { seats?: {seatId, version}[], sectionId?, quantity? }
-            // Derived payload has: { sectionId, quantity, type, seatIds?, ... }
 
             const reservationData: {
                 sectionId?: number;
                 quantity?: number;
                 seats?: Array<{ seatId: number; version: number }>;
             } = {
-                sectionId: payload.sectionId, // Already a number
+                sectionId: payload.sectionId,
                 quantity: payload.quantity
             };
 
             if (payload.type === 'ASSIGNED' && payload.seatIds) {
-                // Find seat versions from inventory
-                // Inventory has id as string. DTO needs number.
                 const selectedSeats = selectedSection.seats?.filter(s => payload.seatIds!.includes(s.id)) || [];
 
                 reservationData.seats = selectedSeats.map(s => ({
                     seatId: s.id,
-                    version: (s as { version?: number }).version || 0 // Version is now added to backend payload!
+                    version: (s as { version?: number }).version || 0
                 }));
-                // Override quantity for assigned just in case (though backend might ignore it if seats present)
-                reservationData.quantity = undefined;
-                // Wait, logic says strictly: if sectionId is present, it uses GA logic?
-                // Backend logic: "if (dto.sectionId) { return this.reserveGaTickets... }"
-                // Ah! This is broken for Assigned Seating if I send sectionId!
-                // Backend assumes if sectionId is present, it is GA!
-
-                // CRITICAL CORRECTION:
-                // If ASSIGNED, do NOT send sectionId to backend for current implementation 
-                // OR update backend to handle sectionId for assigned (used for reporting).
-                // My backend implementation:
-                /* 
-                    if (dto.sectionId) { return this.reserveGaTickets(...) }
-                */
-                // So if I send sectionId, it calls GA logic. GA logic checks if section.type === 'GENERAL'.
-                // If I send sectionId for assigned section, GA logic will throw "Not a General Admission section".
-                // So for ASSIGNED, I MUST NOT send sectionId, OR I must update backend to check type before routing.
-
-                // Fix strategy: Only send sectionId if GA.
                 if (payload.type === 'ASSIGNED') {
                     delete reservationData.sectionId;
-                    delete reservationData.quantity; // Assigned uses seats array length
+                    delete reservationData.quantity;
                 }
             }
 
             const response = await ReservationsService.createReservation(
-                event.id, 
+                event.id,
                 reservationData as import('../../services/reservations').CreateReservationRequest
             );
 
-            // Calculate pricing information to pass to checkout
-            const seatNumbers = payload.type === 'ASSIGNED' 
+            const seatNumbers = payload.type === 'ASSIGNED'
                 ? selectedSection.seats?.filter(s => payload.seatIds?.includes(s.id)).map(s => s.number) || []
                 : [`GA - ${quantity} ticket(s)`];
-            
-            const basePrice = isGA 
-                ? selectedSection.price * quantity 
+
+            const basePrice = isGA
+                ? selectedSection.price * quantity
                 : selectedSection.price * selectedSeatIds.length;
-            
+
             let finalPrice = basePrice;
             if (appliedDiscount) {
                 const discountAmount = appliedDiscount.type === 'PERCENTAGE'
@@ -255,10 +211,8 @@ export const EventDetailsPage: React.FC = () => {
                 finalPrice = Math.max(0, basePrice - discountAmount);
             }
 
-            // Immediately navigate to checkout without showing alert
-            // This prevents any modal dismissal issues
-            navigate('/checkout', { 
-                state: { 
+            navigate('/checkout', {
+                state: {
                     reservationId: response.id,
                     eventId: event.id,
                     eventName: event.eventName,
@@ -268,91 +222,96 @@ export const EventDetailsPage: React.FC = () => {
                     quantity: isGA ? quantity : selectedSeatIds.length,
                     pricePerSeat: selectedSection.price,
                     totalPrice: finalPrice,
-                } 
+                }
             });
 
         } catch (err: unknown) {
             console.error('Reservation failed', err);
-            const error = err as { response?: { data?: { message?: string } } };
-            
-            // Show error alert
-            showAlert({
-                type: 'error',
-                title: 'Reservation Failed',
-                message: error.response?.data?.message || 'Failed to reserve seats. Please try again.'
+
+            handleReservationError(err, {
+                context: {
+                    affectedResource: isGA ? `${quantity} tickets` : `${selectedSeatIds.length} seats`
+                },
+                retryAction: () => handleReservation(true)
             });
-            
-            setError(error.response?.data?.message || 'Failed to reserve seats. Please try again.');
         }
     };
 
-    if (loading) return <div className="max-w-4xl mx-auto p-6">Loading event details...</div>;
-
-    if (error) return (
-        <div className="max-w-4xl mx-auto p-6">
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                <p className="font-bold">Error</p>
-                <p>{error}</p>
-            </div>
+    if (loading) return (
+        <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <span className="ml-3 text-muted-foreground">Loading event details...</span>
         </div>
     );
 
-    if (!event) return <div className="max-w-4xl mx-auto p-6">Event not found</div>;
+    if (error) return (
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md">
+            {error}
+        </div>
+    );
+
+    if (!event) return (
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md">
+            Event not found.
+        </div>
+    );
 
     return (
-        <div className="max-w-4xl mx-auto p-6">
-            {/* Back Button */}
+        <div className="animate-fade-in">
             <button
                 onClick={() => navigate('/events')}
-                className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-4 transition-colors"
+                className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
             >
                 <ArrowLeft size={20} />
                 Back to Events
             </button>
 
-            {/* Event Header */}
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 mb-6">
-                <h1 className="text-3xl font-bold mb-2">{event.eventName}</h1>
-                <div className="text-slate-500 mb-4">
-                    {format(new Date(event.eventDate), 'MMMM d, yyyy h:mm aa')} • {event.venueName || event.customVenue || 'Main Hall'}
+            <div className="bg-card p-6 rounded-xl shadow-soft border mb-8">
+                <h1 className="text-3xl font-bold font-poppins mb-2">{event.eventName}</h1>
+                <div className="text-muted-foreground mb-4 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                    <div className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        {format(new Date(event.eventDate), 'MMMM d, yyyy h:mm aa')}
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4" />
+                        {event.venueName || event.customVenue || 'Main Hall'}
+                    </div>
                 </div>
-                <div className="flex gap-4 text-sm">
-                    <span className="bg-slate-100 px-3 py-1 rounded-full text-slate-700">
-                        Total Capacity: {event.totalSeats}
+                <div className="flex gap-4 text-sm mt-4">
+                    <span className="bg-muted px-3 py-1 rounded-full text-muted-foreground font-medium">
+                        Capacity: {event.totalSeats}
+                    </span>
+                    <span className="bg-muted px-3 py-1 rounded-full text-muted-foreground font-medium">
+                        Status: {event.status}
                     </span>
                 </div>
             </div>
 
-            {/* Inventory Section */}
             {!inventory ? (
-                <div className="text-center p-8 text-slate-500">No tickets available.</div>
+                <div className="bg-card text-center p-8 rounded-xl border shadow-soft text-muted-foreground">
+                    <Info className="w-12 h-12 mx-auto mb-4" />
+                    <p>No ticket inventory available for this event.</p>
+                </div>
             ) : (
-                <>
-                    {/* Purchase Eligibility Warning */}
+                <div className="bg-card rounded-xl shadow-soft border overflow-hidden">
                     {purchaseEligibility && !purchaseEligibility.canPurchase && (
-                        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
-                            <div className="flex items-start gap-3">
-                                <svg className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                </svg>
-                                <div>
-                                    <p className="font-semibold text-amber-900">Tickets Not Available</p>
-                                    <p className="text-sm text-amber-700 mt-1">{purchaseEligibility.reason}</p>
-                                </div>
+                        <div className="bg-destructive/10 border-b border-destructive/20 text-destructive p-4 flex items-start gap-3">
+                            <Info className="w-5 h-5 flex-shrink-0" />
+                            <div>
+                                <p className="font-semibold">Tickets Not Available</p>
+                                <p className="text-sm mt-1">{purchaseEligibility.reason}</p>
                             </div>
                         </div>
                     )}
 
-                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-
-                    {/* Section Tabs */}
-                    <div className="flex overflow-x-auto border-b bg-slate-50">
+                    <div className="flex overflow-x-auto border-b border-border">
                         {inventory.sections.map(section => (
                             <button
                                 key={section.id}
-                                className={`px-6 py-4 font-medium text-sm whitespace-nowrap border-b-2 transition-colors ${selectedSectionId === section.id
-                                    ? 'border-primary text-primary bg-white'
-                                    : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                                className={`flex-shrink-0 px-6 py-4 font-bold text-sm border-b-2 transition-colors ${selectedSectionId === section.id
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground'
                                     }`}
                                 onClick={() => selectSection(section.id)}
                             >
@@ -361,14 +320,13 @@ export const EventDetailsPage: React.FC = () => {
                         ))}
                     </div>
 
-                    {/* Section Content */}
                     <div className="p-6 min-h-[400px]">
                         {selectedSection ? (
                             <>
                                 <div className="mb-6 flex justify-between items-start">
                                     <div>
-                                        <h2 className="text-xl font-semibold mb-1">{selectedSection.name}</h2>
-                                        <p className="text-slate-500 text-sm">
+                                        <h2 className="text-xl font-bold mb-1">{selectedSection.name}</h2>
+                                        <p className="text-muted-foreground text-sm">
                                             {selectedSection.type === 'GENERAL' ? 'General Admission' : 'Reserved Seating'}
                                         </p>
                                     </div>
@@ -376,8 +334,8 @@ export const EventDetailsPage: React.FC = () => {
                                         <div className="text-2xl font-bold text-primary">
                                             {selectedSection.price > 0 ? `$${selectedSection.price}` : 'Free'}
                                         </div>
-                                        <div className="text-sm text-slate-500">per ticket</div>
-                                        <div className="text-xs text-slate-400 mt-1">
+                                        <div className="text-sm text-muted-foreground">per ticket</div>
+                                        <div className="text-xs text-muted-foreground mt-1">
                                             {selectedSection.capacity.available} available
                                         </div>
                                     </div>
@@ -385,10 +343,10 @@ export const EventDetailsPage: React.FC = () => {
 
                                 {isGA ? (
                                     <div className="max-w-md mx-auto py-12 text-center">
-                                        <label className="block text-slate-700 font-medium mb-4">Select Quantity</label>
+                                        <label className="block text-foreground font-semibold mb-4 text-lg">Select Quantity</label>
                                         <div className="flex items-center justify-center gap-4 mb-8">
                                             <button
-                                                className="w-12 h-12 rounded-full border border-slate-300 flex items-center justify-center text-xl hover:bg-slate-50 disabled:opacity-50"
+                                                className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-xl hover:bg-secondary disabled:opacity-50 transition-colors"
                                                 onClick={() => updateQuantity(quantity - 1)}
                                                 disabled={quantity <= 1}
                                             >
@@ -396,144 +354,161 @@ export const EventDetailsPage: React.FC = () => {
                                             </button>
                                             <span className="text-3xl font-bold w-16 tabular-nums">{quantity}</span>
                                             <button
-                                                className="w-12 h-12 rounded-full border border-slate-300 flex items-center justify-center text-xl hover:bg-slate-50 disabled:opacity-50"
+                                                className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-xl hover:bg-secondary disabled:opacity-50 transition-colors"
                                                 onClick={() => updateQuantity(quantity + 1)}
                                                 disabled={quantity >= Math.min(6, selectedSection.capacity.available)}
                                             >
                                                 +
                                             </button>
                                         </div>
-                                        <div className="bg-slate-50 p-4 rounded-lg inline-block">
-                                            <div className="text-sm text-slate-500">Total Price</div>
-                                            <div className="text-2xl font-bold">
-                                                {selectedSection.price > 0 ? `$${selectedSection.price * quantity}` : 'Free'}
+                                        <div className="bg-muted p-4 rounded-lg inline-block border">
+                                            <div className="text-sm text-muted-foreground">Current Total</div>
+                                            <div className="text-2xl font-bold text-primary">
+                                                {selectedSection.price > 0 ? `$${(selectedSection.price * quantity).toFixed(2)}` : 'Free'}
                                             </div>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="w-full overflow-x-auto">
+                                    <div className="w-full">
                                         <SeatMap
                                             seats={selectedSection.seats || []}
                                             selectedSeatIds={selectedSeatIds}
                                             onToggleSeat={toggleSeat}
                                         />
-                                        <div className="mt-4 text-center text-sm text-slate-500">
+                                        <div className="mt-4 text-center text-sm text-muted-foreground">
                                             Select seats from the map above • Scroll horizontally to see all seats
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Sticky Bottom Bar for Mobile / Action Area */}
-                                <div className="mt-8 pt-6 border-t space-y-4">
-                                    {/* Discount Code Input */}
+                                <div className="mt-8 pt-6 border-t border-border space-y-4">
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700">
+                                        <label className="text-sm font-semibold">
                                             Have a discount code?
                                         </label>
                                         {!appliedDiscount ? (
                                             <div className="flex gap-2">
                                                 <div className="relative flex-1">
-                                                    <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                                     <input
                                                         type="text"
                                                         value={discountCode}
                                                         onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
                                                         placeholder="Enter code"
-                                                        className="w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                                                        className="w-full pl-10 pr-3 py-2 bg-input border rounded-lg focus:ring-primary focus:border-primary"
                                                         onKeyPress={(e) => e.key === 'Enter' && handleApplyDiscount()}
                                                     />
                                                 </div>
                                                 <button
                                                     onClick={handleApplyDiscount}
                                                     disabled={!discountCode.trim() || validatingDiscount}
-                                                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg font-semibold hover:bg-secondary/80 disabled:opacity-50"
                                                 >
                                                     {validatingDiscount ? 'Checking...' : 'Apply'}
                                                 </button>
                                             </div>
                                         ) : (
-                                            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                                                <Check className="w-5 h-5 text-green-600" />
+                                            <div className="flex items-center gap-2 p-3 bg-success/10 border border-success/20 text-success rounded-lg">
+                                                <Check className="w-5 h-5" />
                                                 <div className="flex-1">
-                                                    <div className="font-semibold text-green-900">
+                                                    <div className="font-semibold">
                                                         Code "{appliedDiscount.code}" applied!
                                                     </div>
-                                                    <div className="text-sm text-green-700">
-                                                        {appliedDiscount.type === 'PERCENTAGE' 
-                                                            ? `${appliedDiscount.amount}% discount` 
+                                                    <div className="text-sm">
+                                                        {appliedDiscount.type === 'PERCENTAGE'
+                                                            ? `${appliedDiscount.amount}% discount`
                                                             : `$${appliedDiscount.amount} off`}
                                                     </div>
                                                 </div>
                                                 <button
                                                     onClick={handleRemoveDiscount}
-                                                    className="p-1 hover:bg-green-100 rounded"
+                                                    className="p-1 hover:bg-success/20 rounded-full"
                                                 >
-                                                    <X className="w-4 h-4 text-green-700" />
+                                                    <X className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         )}
                                         {discountError && (
-                                            <div className="text-sm text-red-600 flex items-center gap-1">
+                                            <div className="text-sm text-destructive flex items-center gap-1">
                                                 <X className="w-4 h-4" />
                                                 {discountError}
                                             </div>
                                         )}
                                     </div>
 
-                                    {/* Pricing Summary */}
-                                    <div className="flex justify-between items-center">
+                                    <div className="flex justify-between items-center bg-muted p-4 rounded-lg border">
                                         <div>
-                                            {appliedDiscount && selectedSection.price > 0 && (
-                                                <div className="space-y-1">
-                                                    <div className="text-sm text-slate-500">
-                                                        Original: <span className="line-through">${(isGA ? selectedSection.price * quantity : selectedSection.price * selectedSeatIds.length).toFixed(2)}</span>
-                                                    </div>
-                                                    <div className="text-sm text-green-600 font-medium">
-                                                        Discount: -${getDiscountAmount().toFixed(2)}
-                                                    </div>
-                                                    <div className="text-sm text-slate-500">Total</div>
-                                                    <div className="text-2xl font-bold text-primary">
+                                            {selectedSection.price > 0 ? (
+                                                <>
+                                                    <div className="text-sm text-muted-foreground">Total Payable</div>
+                                                    {appliedDiscount && (
+                                                        <div className="text-xs text-muted-foreground line-through">
+                                                            Original: ${(isGA ? selectedSection.price * quantity : selectedSection.price * selectedSeatIds.length).toFixed(2)}
+                                                        </div>
+                                                    )}
+                                                    <div className="text-3xl font-bold text-primary">
                                                         ${calculatePrice().toFixed(2)}
                                                     </div>
-                                                </div>
-                                            )}
-                                            {!appliedDiscount && (
-                                                <>
-                                                    <div className="text-sm text-slate-500">Total</div>
-                                                    <div className="text-2xl font-bold text-primary">
-                                                        {selectedSection.price > 0 
-                                                            ? `$${calculatePrice().toFixed(2)}`
-                                                            : 'Free'
-                                                        }
-                                                    </div>
                                                 </>
+                                            ) : (
+                                                <div className="text-3xl font-bold text-primary">Free</div>
                                             )}
                                         </div>
                                         <button
-                                            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-lg font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                            disabled={!canBook || (purchaseEligibility ? !purchaseEligibility.canPurchase : false)}
+                                            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-lg font-bold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                            disabled={!canBook || (purchaseEligibility ? !purchaseEligibility.canPurchase : false) || isRetrying}
                                             onClick={handleReservation}
                                             title={purchaseEligibility && !purchaseEligibility.canPurchase ? purchaseEligibility.reason : ''}
                                         >
-                                            {selectedSection.price > 0 ? 'Book' : 'Reserve'} {isGA ? `${quantity} Ticket${quantity > 1 ? 's' : ''}` : `${selectedSeatIds.length} Seat${selectedSeatIds.length !== 1 ? 's' : ''}`}
+                                            {isRetrying ? 'Processing...' : (selectedSection.price > 0 ? 'Book' : 'Reserve')} {isGA ? `${quantity} Ticket${quantity > 1 ? 's' : ''}` : `${selectedSeatIds.length} Seat${selectedSeatIds.length !== 1 ? 's' : ''}`}
                                         </button>
                                     </div>
-
                                 </div>
-
                             </>
                         ) : (
-                            <div className="flex items-center justify-center h-full text-slate-400">
-                                Select a section to view availability
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-10">
+                                <Info className="w-10 h-10 mb-4" />
+                                <p className="text-lg font-semibold">No section selected</p>
+                                <p className="text-sm">Please select a section to view availability and book tickets.</p>
                             </div>
                         )}
                     </div>
                 </div>
-                </>
+            )}
+
+            {reservationError && (
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-card rounded-xl border shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
+                        <ErrorDisplay
+                            error={reservationError}
+                            onPrimaryAction={() => {
+                                if (reservationError.primaryAction.action === 'retry') {
+                                    handleReservation();
+                                } else if (reservationError.primaryAction.action === 'retry_modified') {
+                                    clearReservationError();
+                                } else if (reservationError.primaryAction.action === 'restart') {
+                                    clearReservationError();
+                                    loadData(parseInt(id!));
+                                } else if (reservationError.primaryAction.action === 'contact_support') {
+                                    window.location.href = 'mailto:support@ticketing.com';
+                                }
+                            }}
+                            onSecondaryAction={
+                                reservationError.secondaryAction ? () => {
+                                    if (reservationError.secondaryAction?.action === 'restart') {
+                                        clearReservationError();
+                                        loadData(parseInt(id!));
+                                    }
+                                } : undefined
+                            }
+                            onDismiss={clearReservationError}
+                        />
+                    </div>
+                </div>
             )}
 
             <ErrorModal
-                isOpen={!!error}
+                isOpen={!!error && !reservationError}
                 onClose={() => setError(null)}
                 message={error || ''}
                 title="Booking Failed"

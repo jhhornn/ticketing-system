@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, ToggleLeft, ToggleRight, Calendar, Users, Percent, DollarSign } from 'lucide-react';
 import { DiscountsService, type Discount, type CreateDiscountData } from '../services/discounts';
-import { useModal } from '../context/ModalContext';
+import { useModal } from '../hooks/useModal';
 
 interface DiscountManagementModalProps {
   isOpen: boolean;
@@ -28,25 +28,41 @@ export const DiscountManagementModal: React.FC<DiscountManagementModalProps> = (
     eventId,
   });
 
-  useEffect(() => {
-    if (isOpen) {
-      loadDiscounts();
-    }
-  }, [isOpen, eventId]);
-
-  const loadDiscounts = async () => {
+  const loadDiscounts = React.useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await DiscountsService.getByEventId(eventId);
       setDiscounts(data);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to load discounts';
+    } catch (error: unknown) {
+      let errorMessage = 'Failed to load discounts';
+      interface ErrorWithResponse {
+        response?: {
+          data?: {
+            message?: string;
+          };
+        };
+        message?: string;
+      }
+      if (typeof error === 'object' && error !== null) {
+        const err = error as ErrorWithResponse;
+        if (err.response?.data?.message && typeof err.response.data.message === 'string') {
+          errorMessage = err.response.data.message;
+        } else if (err.message && typeof err.message === 'string') {
+          errorMessage = err.message;
+        }
+      }
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadDiscounts();
+    }
+  }, [isOpen, eventId, loadDiscounts]);
 
   const handleCreateDiscount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,11 +81,27 @@ export const DiscountManagementModal: React.FC<DiscountManagementModalProps> = (
         title: 'Success',
         message: 'Discount created successfully'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      let errorMessage = 'Failed to create discount';
+      interface ErrorWithResponse {
+        response?: {
+          data?: {
+            message?: string;
+          };
+        };
+      }
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        typeof (error as ErrorWithResponse).response?.data?.message === 'string'
+      ) {
+        errorMessage = (error as ErrorWithResponse).response!.data!.message!;
+      }
       showAlert({
         type: 'error',
         title: 'Error',
-        message: error.response?.data?.message || 'Failed to create discount'
+        message: errorMessage
       });
     }
   };
@@ -87,11 +119,20 @@ export const DiscountManagementModal: React.FC<DiscountManagementModalProps> = (
         title: 'Success',
         message: `Discount ${discount.isActive ? 'deactivated' : 'activated'} successfully`
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      let errorMessage = 'Failed to toggle discount';
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
+      ) {
+        errorMessage = (error as { response?: { data?: { message?: string } } }).response!.data!.message!;
+      }
       showAlert({
         type: 'error',
         title: 'Error',
-        message: error.response?.data?.message || 'Failed to toggle discount'
+        message: errorMessage
       });
     }
   };
@@ -115,11 +156,20 @@ export const DiscountManagementModal: React.FC<DiscountManagementModalProps> = (
         title: 'Success',
         message: 'Discount deleted successfully'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      let errorMessage = 'Failed to delete discount';
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
+      ) {
+        errorMessage = (error as { response?: { data?: { message?: string } } }).response!.data!.message!;
+      }
       showAlert({
         type: 'error',
         title: 'Error',
-        message: error.response?.data?.message || 'Failed to delete discount'
+        message: errorMessage
       });
     }
   };
@@ -196,7 +246,7 @@ export const DiscountManagementModal: React.FC<DiscountManagementModalProps> = (
                     <label className="block text-sm font-medium mb-2 text-gray-700">Type *</label>
                     <select
                       value={createFormData.type}
-                      onChange={(e) => setCreateFormData({ ...createFormData, type: e.target.value as any })}
+                      onChange={(e) => setCreateFormData({ ...createFormData, type: e.target.value as 'PERCENTAGE' | 'FIXED_AMOUNT' })}
                       className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
                     >
                       <option value="PERCENTAGE">Percentage</option>

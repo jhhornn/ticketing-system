@@ -42,7 +42,6 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ isOpen, ev
 
     if (!isOpen) return null;
 
-    // Calculate statistics
     const totalRevenue = bookings.reduce((sum, b) => sum + b.totalAmount, 0);
     const confirmedBookings = bookings.filter(b => b.status === BookingStatus.CONFIRMED);
     const pendingBookings = bookings.filter(b => b.status === BookingStatus.PENDING);
@@ -52,18 +51,12 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ isOpen, ev
 
     const getStatusBadge = (status: BookingStatus) => {
         const styles = {
-            [BookingStatus.CONFIRMED]: 'bg-green-100 text-green-700 border-green-300',
-            [BookingStatus.PENDING]: 'bg-yellow-100 text-yellow-700 border-yellow-300',
-            [BookingStatus.CANCELLED]: 'bg-red-100 text-red-700 border-red-300',
-        };
-        const icons = {
-            [BookingStatus.CONFIRMED]: <CheckCircle className="w-3 h-3" />,
-            [BookingStatus.PENDING]: <AlertCircle className="w-3 h-3" />,
-            [BookingStatus.CANCELLED]: <XCircle className="w-3 h-3" />,
+            [BookingStatus.CONFIRMED]: 'bg-success/20 text-success',
+            [BookingStatus.PENDING]: 'bg-warning/20 text-warning',
+            [BookingStatus.CANCELLED]: 'bg-destructive/20 text-destructive',
         };
         return (
-            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border ${styles[status]}`}>
-                {icons[status]}
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${styles[status]}`}>
                 {status}
             </span>
         );
@@ -71,13 +64,13 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ isOpen, ev
 
     const getPaymentStatusBadge = (status: PaymentStatus) => {
         const styles = {
-            [PaymentStatus.SUCCESS]: 'bg-emerald-100 text-emerald-700',
-            [PaymentStatus.PENDING]: 'bg-amber-100 text-amber-700',
-            [PaymentStatus.FAILED]: 'bg-rose-100 text-rose-700',
-            [PaymentStatus.REFUNDED]: 'bg-blue-100 text-blue-700',
+            [PaymentStatus.SUCCESS]: 'bg-green-500/20 text-green-700',
+            [PaymentStatus.PENDING]: 'bg-yellow-500/20 text-yellow-700',
+            [PaymentStatus.FAILED]: 'bg-red-500/20 text-red-700',
+            [PaymentStatus.REFUNDED]: 'bg-blue-500/20 text-blue-700',
         };
         return (
-            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${styles[status]}`}>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${styles[status]}`}>
                 {status}
             </span>
         );
@@ -110,264 +103,221 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ isOpen, ev
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-300">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 flex justify-between items-start">
-                    <div className="flex-1">
-                        <h2 className="text-3xl font-bold mb-2">{event.eventName}</h2>
-                        <div className="flex flex-wrap gap-4 text-sm opacity-90">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-card w-full max-w-6xl rounded-xl border shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-center p-6 border-b">
+                    <div>
+                        <h2 className="text-3xl font-bold font-poppins mb-1">{event.eventName}</h2>
+                        <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
-                                <Calendar className="w-4 h-4" />
+                                <Calendar className="w-4 h-4 text-primary" />
                                 {format(new Date(event.eventDate), 'MMM dd, yyyy')}
                             </div>
                             <div className="flex items-center gap-1">
-                                <Clock className="w-4 h-4" />
+                                <Clock className="w-4 h-4 text-primary" />
                                 {event.eventTime}
                             </div>
                             <div className="flex items-center gap-1">
-                                <MapPin className="w-4 h-4" />
+                                <MapPin className="w-4 h-4 text-primary" />
                                 {event.venueName || event.customVenue}
                             </div>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-2 transition-all"
-                    >
-                        <X className="w-6 h-6" />
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-secondary">
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                {/* Tabs */}
-                <div className="border-b bg-gray-50 px-6">
-                    <div className="flex gap-1">
-                        <button
-                            onClick={() => setActiveTab('overview')}
-                            className={`px-6 py-3 font-semibold transition-all ${
-                                activeTab === 'overview'
-                                    ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                            }`}
-                        >
-                            <div className="flex items-center gap-2">
-                                <TrendingUp className="w-4 h-4" />
-                                Overview & Analytics
-                            </div>
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('bookings')}
-                            className={`px-6 py-3 font-semibold transition-all ${
-                                activeTab === 'bookings'
-                                    ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                            }`}
-                        >
-                            <div className="flex items-center gap-2">
-                                <Ticket className="w-4 h-4" />
-                                Bookings ({bookings.length})
-                            </div>
-                        </button>
-                    </div>
+                <div className="flex border-b">
+                    <button
+                        onClick={() => setActiveTab('overview')}
+                        className={`py-3 px-6 text-sm font-semibold border-b-2 ${activeTab === 'overview' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                    >
+                        Overview
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('bookings')}
+                        className={`py-3 px-6 text-sm font-semibold border-b-2 ${activeTab === 'bookings' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                    >
+                        Bookings ({bookings.length})
+                    </button>
                 </div>
 
-                {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6">
                     {loading ? (
                         <div className="flex items-center justify-center h-64">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-primary"></div>
                         </div>
                     ) : activeTab === 'overview' ? (
                         <div className="space-y-6">
-                            {/* Statistics Cards */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-5 border border-blue-200">
+                                <div className="bg-muted/30 p-5 rounded-xl border">
                                     <div className="flex items-center justify-between mb-2">
-                                        <span className="text-blue-600 text-sm font-medium">Total Revenue</span>
-                                        <DollarSign className="w-5 h-5 text-blue-600" />
+                                        <span className="text-sm font-medium">Total Revenue</span>
+                                        <DollarSign className="w-5 h-5 text-primary" />
                                     </div>
-                                    <div className="text-2xl font-bold text-blue-900">${totalRevenue.toFixed(2)}</div>
-                                    <div className="text-xs text-blue-600 mt-1">From {confirmedBookings.length} confirmed bookings</div>
+                                    <div className="text-2xl font-bold">${totalRevenue.toFixed(2)}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">{confirmedBookings.length} confirmed</div>
                                 </div>
 
-                                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-5 border border-green-200">
+                                <div className="bg-muted/30 p-5 rounded-xl border">
                                     <div className="flex items-center justify-between mb-2">
-                                        <span className="text-green-600 text-sm font-medium">Tickets Sold</span>
-                                        <Ticket className="w-5 h-5 text-green-600" />
+                                        <span className="text-sm font-medium">Tickets Sold</span>
+                                        <Ticket className="w-5 h-5 text-primary" />
                                     </div>
-                                    <div className="text-2xl font-bold text-green-900">{ticketsSold} / {event.totalSeats}</div>
-                                    <div className="text-xs text-green-600 mt-1">{event.availableSeats} remaining</div>
+                                    <div className="text-2xl font-bold">{ticketsSold} / {event.totalSeats}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">{event.availableSeats} remaining</div>
                                 </div>
 
-                                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-5 border border-purple-200">
+                                <div className="bg-muted/30 p-5 rounded-xl border">
                                     <div className="flex items-center justify-between mb-2">
-                                        <span className="text-purple-600 text-sm font-medium">Attendance Rate</span>
-                                        <TrendingUp className="w-5 h-5 text-purple-600" />
+                                        <span className="text-sm font-medium">Attendance Rate</span>
+                                        <TrendingUp className="w-5 h-5 text-primary" />
                                     </div>
-                                    <div className="text-2xl font-bold text-purple-900">{attendanceRate.toFixed(1)}%</div>
-                                    <div className="w-full bg-purple-200 rounded-full h-2 mt-2">
-                                        <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${attendanceRate}%` }}></div>
+                                    <div className="text-2xl font-bold">{attendanceRate.toFixed(1)}%</div>
+                                    <div className="w-full bg-border rounded-full h-2 mt-2">
+                                        <div className="bg-primary h-2 rounded-full" style={{ width: `${attendanceRate}%` }}></div>
                                     </div>
                                 </div>
 
-                                <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-5 border border-amber-200">
+                                <div className="bg-muted/30 p-5 rounded-xl border">
                                     <div className="flex items-center justify-between mb-2">
-                                        <span className="text-amber-600 text-sm font-medium">Total Bookings</span>
-                                        <Users className="w-5 h-5 text-amber-600" />
+                                        <span className="text-sm font-medium">Total Bookings</span>
+                                        <Users className="w-5 h-5 text-primary" />
                                     </div>
-                                    <div className="text-2xl font-bold text-amber-900">{bookings.length}</div>
-                                    <div className="text-xs text-amber-600 mt-1">
+                                    <div className="text-2xl font-bold">{bookings.length}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">
                                         {confirmedBookings.length} confirmed, {pendingBookings.length} pending
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Booking Status Breakdown */}
-                            <div className="bg-gray-50 rounded-xl p-5 border">
-                                <h3 className="font-bold text-lg mb-4 text-gray-800">Booking Status Breakdown</h3>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="bg-white rounded-lg p-4 border border-gray-200">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <CheckCircle className="w-5 h-5 text-green-600" />
-                                            <span className="font-semibold text-gray-700">Confirmed</span>
-                                        </div>
-                                        <div className="text-2xl font-bold text-green-600">{confirmedBookings.length}</div>
+                            <div className="bg-muted/30 rounded-xl p-5 border">
+                                <h3 className="font-bold text-lg mb-4">Booking Status Breakdown</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div className="bg-card p-4 rounded-lg border flex flex-col items-center">
+                                        <CheckCircle className="w-8 h-8 text-success mb-2" />
+                                        <span className="font-semibold text-sm mb-1">Confirmed</span>
+                                        <span className="text-2xl font-bold text-success">{confirmedBookings.length}</span>
                                     </div>
-                                    <div className="bg-white rounded-lg p-4 border border-gray-200">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <AlertCircle className="w-5 h-5 text-yellow-600" />
-                                            <span className="font-semibold text-gray-700">Pending</span>
-                                        </div>
-                                        <div className="text-2xl font-bold text-yellow-600">{pendingBookings.length}</div>
+                                    <div className="bg-card p-4 rounded-lg border flex flex-col items-center">
+                                        <AlertCircle className="w-8 h-8 text-warning mb-2" />
+                                        <span className="font-semibold text-sm mb-1">Pending</span>
+                                        <span className="text-2xl font-bold text-warning">{pendingBookings.length}</span>
                                     </div>
-                                    <div className="bg-white rounded-lg p-4 border border-gray-200">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <XCircle className="w-5 h-5 text-red-600" />
-                                            <span className="font-semibold text-gray-700">Cancelled</span>
-                                        </div>
-                                        <div className="text-2xl font-bold text-red-600">{cancelledBookings.length}</div>
+                                    <div className="bg-card p-4 rounded-lg border flex flex-col items-center">
+                                        <XCircle className="w-8 h-8 text-destructive mb-2" />
+                                        <span className="font-semibold text-sm mb-1">Cancelled</span>
+                                        <span className="text-2xl font-bold text-destructive">{cancelledBookings.length}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Event Details */}
-                            <div className="bg-gray-50 rounded-xl p-5 border">
-                                <h3 className="font-bold text-lg mb-4 text-gray-800">Event Information</h3>
-                                <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="bg-muted/30 rounded-xl p-5 border">
+                                <h3 className="font-bold text-lg mb-4">Event Information</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                                     <div>
-                                        <span className="text-gray-600">Event Type:</span>
-                                        <span className="ml-2 font-semibold text-gray-900">{event.isTicketed ? 'Ticketed' : 'Free'}</span>
+                                        <span className="text-muted-foreground">Type:</span>
+                                        <span className="ml-2 font-semibold">{event.isTicketed ? 'Ticketed' : 'Free'}</span>
                                     </div>
                                     <div>
-                                        <span className="text-gray-600">Status:</span>
-                                        <span className="ml-2 font-semibold text-gray-900">{event.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                                        <span className="text-muted-foreground">Status:</span>
+                                        <span className="ml-2 font-semibold">{event.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
                                     </div>
                                     <div>
-                                        <span className="text-gray-600">Category:</span>
-                                        <span className="ml-2 font-semibold text-gray-900">{event.eventType}</span>
+                                        <span className="text-muted-foreground">Category:</span>
+                                        <span className="ml-2 font-semibold">{event.eventType}</span>
                                     </div>
                                     <div>
-                                        <span className="text-gray-600">Active Discounts:</span>
-                                        <span className="ml-2 font-semibold text-gray-900">
-                                            {event.hasActiveDiscounts ? '✓ Yes' : '✗ No'}
+                                        <span className="text-muted-foreground">Active Discounts:</span>
+                                        <span className="ml-2 font-semibold">
+                                            {event.hasActiveDiscounts ? 'Yes' : 'No'}
                                         </span>
                                     </div>
                                 </div>
                                 {event.eventDescription && (
-                                    <div className="mt-4 pt-4 border-t">
-                                        <span className="text-gray-600 text-sm">Description:</span>
-                                        <p className="mt-1 text-gray-800">{event.eventDescription}</p>
+                                    <div className="mt-4 pt-4 border-t border-border">
+                                        <span className="text-muted-foreground text-sm">Description:</span>
+                                        <p className="mt-1">{event.eventDescription}</p>
                                     </div>
                                 )}
                             </div>
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {/* Export Button */}
                             <div className="flex justify-end">
                                 <button
                                     onClick={exportToCSV}
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
                                 >
                                     <Download className="w-4 h-4" />
                                     Export to CSV
                                 </button>
                             </div>
 
-                            {/* Bookings Table */}
                             {bookings.length === 0 ? (
-                                <div className="text-center py-12 bg-gray-50 rounded-xl">
-                                    <Ticket className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-1">No Bookings Yet</h3>
-                                    <p className="text-gray-500">Bookings will appear here once customers purchase tickets.</p>
+                                <div className="text-center py-12 bg-muted/30 rounded-xl border">
+                                    <Ticket className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                                    <h3 className="text-lg font-semibold mb-1">No Bookings Yet</h3>
+                                    <p className="text-muted-foreground">Bookings will appear here once customers purchase tickets.</p>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full border-collapse">
-                                        <thead>
-                                            <tr className="bg-gray-100 border-b-2 border-gray-300">
-                                                <th className="text-left p-3 text-sm font-semibold text-gray-700">Reference</th>
-                                                <th className="text-left p-3 text-sm font-semibold text-gray-700">Customer</th>
-                                                <th className="text-left p-3 text-sm font-semibold text-gray-700">Seats</th>
-                                                <th className="text-left p-3 text-sm font-semibold text-gray-700">Amount</th>
-                                                <th className="text-left p-3 text-sm font-semibold text-gray-700">Status</th>
-                                                <th className="text-left p-3 text-sm font-semibold text-gray-700">Payment</th>
-                                                <th className="text-left p-3 text-sm font-semibold text-gray-700">Date</th>
+                                <div className="overflow-x-auto border rounded-lg">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-muted/30">
+                                            <tr>
+                                                <th className="p-4 text-sm font-semibold text-muted-foreground">Reference</th>
+                                                <th className="p-4 text-sm font-semibold text-muted-foreground">Customer</th>
+                                                <th className="p-4 text-sm font-semibold text-muted-foreground">Seats</th>
+                                                <th className="p-4 text-sm font-semibold text-muted-foreground">Amount</th>
+                                                <th className="p-4 text-sm font-semibold text-muted-foreground">Status</th>
+                                                <th className="p-4 text-sm font-semibold text-muted-foreground">Payment</th>
+                                                <th className="p-4 text-sm font-semibold text-muted-foreground">Date</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {bookings.map((booking) => (
-                                                <tr key={booking.bookingId} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
-                                                    <td className="p-3">
+                                                <tr key={booking.bookingId} className="border-t hover:bg-muted/10">
+                                                    <td className="p-4">
                                                         <div className="flex items-center gap-2">
-                                                            <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
-                                                                {booking.bookingReference}
-                                                            </code>
+                                                            <code className="text-xs bg-muted px-2 py-1 rounded">{booking.bookingReference}</code>
                                                             <button
                                                                 onClick={() => copyToClipboard(booking.bookingReference, booking.bookingReference)}
-                                                                className="text-gray-400 hover:text-gray-600"
+                                                                className="text-muted-foreground hover:text-foreground"
                                                                 title="Copy reference"
                                                             >
-                                                                {copiedReference === booking.bookingReference ? (
-                                                                    <Check className="w-4 h-4 text-green-600" />
-                                                                ) : (
-                                                                    <Copy className="w-4 h-4" />
-                                                                )}
+                                                                {copiedReference === booking.bookingReference ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
                                                             </button>
                                                         </div>
                                                     </td>
-                                                    <td className="p-3">
+                                                    <td className="p-4">
                                                         <div className="flex flex-col">
-                                                            <div className="flex items-center gap-1 text-sm font-medium text-gray-900">
-                                                                <User className="w-3 h-3 text-gray-400" />
+                                                            <div className="flex items-center gap-1 text-sm font-medium">
+                                                                <User className="w-3 h-3 text-muted-foreground" />
                                                                 {booking.userName || 'N/A'}
                                                             </div>
-                                                            <div className="flex items-center gap-1 text-xs text-gray-500">
+                                                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                                                 <Mail className="w-3 h-3" />
                                                                 {booking.userEmail || 'N/A'}
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="p-3">
-                                                        <div className="text-sm text-gray-700">
+                                                    <td className="p-4">
+                                                        <div className="text-sm">
                                                             {booking.seatNumbers.slice(0, 2).join(', ')}
-                                                            {booking.seatNumbers.length > 2 && (
-                                                                <span className="text-gray-500"> +{booking.seatNumbers.length - 2} more</span>
-                                                            )}
+                                                            {booking.seatNumbers.length > 2 && <span className="text-muted-foreground"> +{booking.seatNumbers.length - 2} more</span>}
                                                         </div>
                                                     </td>
-                                                    <td className="p-3">
-                                                        <span className="font-semibold text-gray-900">
-                                                            ${booking.totalAmount.toFixed(2)}
-                                                        </span>
+                                                    <td className="p-4">
+                                                        <span className="font-semibold">${booking.totalAmount.toFixed(2)}</span>
                                                     </td>
-                                                    <td className="p-3">{getStatusBadge(booking.status)}</td>
-                                                    <td className="p-3">{getPaymentStatusBadge(booking.paymentStatus)}</td>
-                                                    <td className="p-3">
-                                                        <div className="text-sm text-gray-700">
+                                                    <td className="p-4">{getStatusBadge(booking.status)}</td>
+                                                    <td className="p-4">{getPaymentStatusBadge(booking.paymentStatus)}</td>
+                                                    <td className="p-4">
+                                                        <div className="text-sm">
                                                             {format(new Date(booking.createdAt), 'MMM dd, yyyy')}
                                                         </div>
-                                                        <div className="text-xs text-gray-500">
+                                                        <div className="text-xs text-muted-foreground">
                                                             {format(new Date(booking.createdAt), 'HH:mm')}
                                                         </div>
                                                     </td>
@@ -381,15 +331,8 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ isOpen, ev
                     )}
                 </div>
 
-                {/* Footer */}
-                <div className="border-t bg-gray-50 px-6 py-4 flex justify-between items-center">
-                    <div className="text-sm text-gray-600">
-                        Last updated: {format(new Date(), 'MMM dd, yyyy HH:mm')}
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                    >
+                <div className="border-t p-6 flex justify-end">
+                    <button onClick={onClose} className="py-2.5 px-5 bg-secondary text-secondary-foreground rounded-lg font-semibold hover:bg-secondary/80">
                         Close
                     </button>
                 </div>

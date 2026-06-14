@@ -1,30 +1,21 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { AuthContext, type AuthContextType, type User } from './AuthContextDefinition';
 
-interface User {
-    id: string;
-    email: string;
-    role: string;
-    firstName?: string;
-    lastName?: string;
-}
+export type { User, AuthContextType };
 
-interface AuthContextType {
-    user: User | null;
-    token: string | null;
-    login: (token: string, user: User) => void;
-    logout: () => void;
-    isLoading: boolean;
-    isSuperAdmin: () => boolean;
-    isAdmin: () => boolean;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const ACCESS_TOKEN_STORAGE_KEY = 'access_token';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
-    const [token, setToken] = useState<string | null>(localStorage.getItem('access_token'));
+    const [token, setToken] = useState<string | null>(localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY));
     const [isLoading, setIsLoading] = useState(true);
+
+    const clearAuthState = () => {
+        localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+        setToken(null);
+        setUser(null);
+    };
 
     useEffect(() => {
         // Fetch user profile if token exists
@@ -36,26 +27,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 } catch (error) {
                     console.error('Failed to fetch profile:', error);
                     // Token is invalid, clear it
-                    localStorage.removeItem('access_token');
-                    setToken(null);
+                    clearAuthState();
                 }
             }
             setIsLoading(false);
         };
-        
+
         fetchProfile();
     }, [token]);
 
     const login = (newToken: string, newUser: User) => {
-        localStorage.setItem('access_token', newToken);
+        localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, newToken);
         setToken(newToken);
         setUser(newUser);
     };
 
     const logout = () => {
-        localStorage.removeItem('access_token');
-        setToken(null);
-        setUser(null);
+        clearAuthState();
     };
 
     const isSuperAdmin = () => user?.role === 'SUPER_ADMIN';
@@ -66,12 +54,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             {children}
         </AuthContext.Provider>
     );
-}
-
-export function useAuth() {
-    const context = useContext(AuthContext);
-    if (context === undefined) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
 }

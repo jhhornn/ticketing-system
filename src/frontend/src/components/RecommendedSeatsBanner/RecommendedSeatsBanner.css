@@ -1,0 +1,345 @@
+.recommended-seats-banner {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 2px solid #0ea5e9;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Header */
+.banner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.banner-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-icon {
+  font-size: 20px;
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.1); }
+}
+
+.banner-title h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0c4a6e;
+  margin: 0;
+}
+
+.btn-dismiss {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-dismiss:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: #334155;
+}
+
+/* Banner Content */
+.banner-content {
+  margin-bottom: 12px;
+}
+
+/* Collapsed View */
+.collapsed-view {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.quick-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.quality-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.quality-badge.quality-green {
+  background-color: #10b981;
+  color: white;
+}
+
+.quality-badge.quality-blue {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.quality-badge.quality-orange {
+  background-color: #f59e0b;
+  color: white;
+}
+
+.quality-badge.quality-gray {
+  background-color: #6b7280;
+  color: white;
+}
+
+.section-name {
+  font-weight: 600;
+  color: #0c4a6e;
+  font-size: 14px;
+}
+
+.seat-count {
+  color: #475569;
+  font-size: 14px;
+}
+
+.contiguous-badge {
+  background-color: #dcfce7;
+  color: #166534;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.price-info {
+  color: #059669;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.btn-show-more {
+  background: white;
+  border: 1px solid #0ea5e9;
+  color: #0369a1;
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-show-more:hover {
+  background: #0ea5e9;
+  color: white;
+}
+
+/* Expanded View */
+.expanded-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recommendations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.recommendation-item {
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s;
+}
+
+.recommendation-item:hover {
+  border-color: #0ea5e9;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.15);
+}
+
+.recommendation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.recommendation-score {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.recommendation-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.detail-label {
+  color: #64748b;
+  font-weight: 500;
+  min-width: 60px;
+}
+
+.detail-value {
+  color: #1e293b;
+  font-weight: 400;
+}
+
+.detail-value.seat-list {
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  color: #475569;
+}
+
+.feature-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #dcfce7;
+  color: #166534;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 4px;
+  align-self: flex-start;
+}
+
+.badge-icon {
+  font-size: 14px;
+}
+
+.btn-view-seats {
+  width: 100%;
+  background: #0ea5e9;
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+.btn-view-seats:hover {
+  background: #0284c7;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(14, 165, 233, 0.3);
+}
+
+.btn-show-less {
+  background: white;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-show-less:hover {
+  border-color: #94a3b8;
+  color: #475569;
+}
+
+/* Footer */
+.banner-footer {
+  border-top: 1px solid #bae6fd;
+  padding-top: 10px;
+}
+
+.recommendation-note {
+  font-size: 12px;
+  color: #475569;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 640px) {
+  .recommended-seats-banner {
+    padding: 12px;
+  }
+
+  .banner-title h3 {
+    font-size: 14px;
+  }
+
+  .quick-info {
+    gap: 8px;
+  }
+
+  .quality-badge {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .section-name,
+  .seat-count,
+  .price-info {
+    font-size: 13px;
+  }
+
+  .recommendations-list {
+    max-height: 300px;
+  }
+
+  .recommendation-note {
+    font-size: 11px;
+  }
+}

@@ -6,3 +6,6 @@ export type { ActionButtonProps } from './ActionButton';
 
 export { Badge } from './Badge';
 export type { BadgeProps, BadgeVariant, BadgeSize } from './Badge';
+
+export { ModalActionButton } from './ModalActionButton';
+export type { ModalActionButtonProps, ModalActionVariant } from './ModalActionButton';

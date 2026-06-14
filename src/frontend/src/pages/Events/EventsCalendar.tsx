@@ -60,7 +60,7 @@ export const EventsCalendar: React.FC = () => {
     };
 
     return (
-        <div style={{ height: '80vh', padding: '1rem', background: 'white', borderRadius: '8px' }}>
+    <div className="bg-card rounded-xl border shadow-soft p-6 h-full">
             <Calendar
                 localizer={localizer}
                 events={events}

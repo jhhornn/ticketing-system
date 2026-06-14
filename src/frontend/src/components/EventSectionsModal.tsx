@@ -1,8 +1,8 @@
 // src/frontend/src/components/EventSectionsModal.tsx
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Save, Edit } from 'lucide-react';
-import { EventSectionsService, type EventSection, type CreateSectionData, type SectionType } from '../services/EventSectionsService';
-import { useModal } from '../context/ModalContext';
+import { X, Plus, Trash2, Save, Edit, Info } from 'lucide-react';
+import { EventSectionsService, type EventSection, type CreateSectionData, type SectionType } from '../services/event-sections';
+import { useModal } from '../hooks/useModal';
 
 interface EventSectionsModalProps {
   eventId: number;
@@ -20,11 +20,10 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
   const { showAlert, showConfirm } = useModal();
   const [sections, setSections] = useState<EventSection[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [editingSection, setEditingSection] = useState<EventSection | null>(null);
 
-  // Form state
   const [formData, setFormData] = useState<CreateSectionData>({
     eventId,
     name: '',
@@ -36,14 +35,7 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
     seatsPerRow: 10,
   });
 
-  useEffect(() => {
-    if (isOpen) {
-      loadSections();
-    }
-  }, [isOpen, eventId]);
-
-
-  const loadSections = async () => {
+  const loadSections = React.useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -53,11 +45,21 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
       const error = err as { response?: { data?: { message?: string }; status?: number }; message?: string };
       const errorMessage = error.response?.data?.message || error.message || 'Failed to load sections';
       console.error('Failed to load sections:', error);
-      setError(`Failed to load sections: ${errorMessage}`);
+      showAlert({ 
+        type: 'error', 
+        title: 'Failed to Load Sections', 
+        message: errorMessage 
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventId, showAlert, setError]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadSections();
+    }
+  }, [isOpen, loadSections]);
 
   const handleCreate = async () => {
     try {
@@ -66,9 +68,15 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
       await loadSections();
       setIsAdding(false);
       resetForm();
+      showAlert({ type: 'success', title: 'Success', message: 'Section created successfully' });
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to create section');
+      const errorMessage = error.response?.data?.message || 'Failed to create section';
+      showAlert({ 
+        type: 'error', 
+        title: 'Failed to Create Section', 
+        message: errorMessage 
+      });
     }
   };
 
@@ -87,20 +95,12 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
       setError(null);
       await EventSectionsService.delete(id);
       await loadSections();
-      showAlert({
-        type: 'success',
-        title: 'Success',
-        message: 'Section deleted successfully'
-      });
+      showAlert({ type: 'success', title: 'Success', message: 'Section deleted successfully' });
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       const errorMessage = error.response?.data?.message || 'Failed to delete section';
       setError(errorMessage);
-      showAlert({
-        type: 'error',
-        title: 'Error',
-        message: errorMessage
-      });
+      showAlert({ type: 'error', title: 'Error', message: errorMessage });
     }
   };
 
@@ -126,8 +126,8 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
       type: section.type,
       price: section.price,
       totalCapacity: section.totalCapacity,
-      generateSeats: false,
-      rows: 10,
+      generateSeats: section.type === 'ASSIGNED', // Assume if editing assigned, seats were generated
+      rows: 10, // These would need to be fetched/stored if accurate representation needed
       seatsPerRow: 10,
     });
     setIsAdding(true);
@@ -148,20 +148,12 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
       setIsAdding(false);
       resetForm();
       
-      showAlert({
-        type: 'success',
-        title: 'Success',
-        message: 'Section updated successfully'
-      });
+      showAlert({ type: 'success', title: 'Success', message: 'Section updated successfully' });
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       const errorMessage = error.response?.data?.message || 'Failed to update section';
       setError(errorMessage);
-      showAlert({
-        type: 'error',
-        title: 'Error',
-        message: errorMessage
-      });
+      showAlert({ type: 'error', title: 'Error', message: errorMessage });
     }
   };
 
@@ -174,7 +166,6 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
   };
 
   const handleCapacityChange = (totalCapacity: number) => {
-    // Auto-adjust rows/seatsPerRow to match capacity for ASSIGNED sections
     if (formData.type === 'ASSIGNED' && formData.generateSeats) {
       const rows = Math.ceil(Math.sqrt(totalCapacity));
       const seatsPerRow = Math.ceil(totalCapacity / rows);
@@ -187,58 +178,43 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-card w-full max-w-4xl rounded-xl border shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
         <div className="flex justify-between items-center p-6 border-b">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Manage Sections</h2>
-            <p className="text-sm text-gray-600 mt-1">{eventName}</p>
+            <h2 className="text-2xl font-bold font-poppins">Manage Sections</h2>
+            <p className="text-sm text-muted-foreground">{eventName}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X size={24} />
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-secondary">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-              {error}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="bg-muted/30 border border-border rounded-lg p-4 flex items-start gap-3">
+            <Info className="w-5 h-5 text-primary flex-shrink-0" />
+            <div className="text-sm">
+              <p className="font-semibold text-foreground mb-1">Important Notes on Sections:</p>
+              <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                <li>Sections cannot be deleted if they have allocated tickets.</li>
+                <li>Sections inherited from registered venues cannot be deleted or modified beyond capacity.</li>
+                <li>Changes to capacity in assigned seating will attempt to re-generate seat layouts.</li>
+              </ul>
             </div>
-          )}
+          </div>
 
-          {/* Important Notice */}
-          {sections.length > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-                <div className="text-sm">
-                  <p className="font-semibold text-blue-900 mb-1">Section Deletion Rules</p>
-                  <ul className="text-blue-700 space-y-1">
-                    <li>• Sections cannot be deleted after bookings have been made</li>
-                    <li>• Sections inherited from registered venues (auto-created) cannot be deleted</li>
-                    <li>• Manually created sections can be deleted even if event uses a registered venue</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Existing Sections */}
           {loading ? (
-            <div className="text-center py-8 text-gray-500">Loading sections...</div>
+            <div className="text-center py-8 text-muted-foreground">Loading sections...</div>
           ) : sections.length === 0 && !isAdding ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500 mb-4">No sections yet</p>
+            <div className="text-center py-8 border-2 border-dashed rounded-lg">
+              <Plus className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-xl font-bold font-poppins mb-2">No Sections Yet</h3>
+              <p className="text-muted-foreground max-w-md mx-auto mb-4">
+                Add the first section to your event to define ticket types and capacities.
+              </p>
               <button
                 onClick={() => setIsAdding(true)}
-                className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg font-semibold hover:bg-primary/90 transition-colors"
               >
                 <Plus size={20} />
                 Add First Section
@@ -246,74 +222,54 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
             </div>
           ) : (
             <>
-              <div className="space-y-3 mb-6">
+              <div className="space-y-4">
                 {sections.map((section) => (
                   <div
                     key={section.id}
-                    className="border rounded-lg p-4 hover:border-blue-300 transition-colors"
+                    className="border rounded-lg p-4 bg-card shadow-sm flex flex-col md:flex-row justify-between gap-4 items-start md:items-center"
                   >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold text-lg">{section.name}</h3>
-                          <span
-                            className={`px-2 py-1 text-xs rounded-full ${
-                              section.type === 'GENERAL'
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-purple-100 text-purple-700'
-                            }`}
-                          >
-                            {section.type === 'GENERAL' ? 'General Admission' : 'Assigned Seating'}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                          <div>
-                            <span className="text-gray-500">Price:</span>
-                            <span className="ml-2 font-medium">
-                              {section.price === 0 ? 'Free' : `$${section.price.toFixed(2)}`}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
+                        <h3 className="font-semibold text-lg">{section.name}</h3>
+                        <span
+                          className={`px-2.5 py-0.5 text-xs rounded-full font-bold ${
+                            section.type === 'GENERAL'
+                              ? 'bg-blue-500/20 text-blue-700'
+                              : 'bg-purple-500/20 text-purple-700'
+                          }`}
+                        >
+                          {section.type === 'GENERAL' ? 'General Admission' : 'Assigned Seating'}
+                        </span>
+                        {section.allocated > 0 && (
+                            <span className="px-2.5 py-0.5 text-xs rounded-full font-bold bg-green-500/20 text-green-700">
+                                {section.allocated} Sold
                             </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Capacity:</span>
-                            <span className="ml-2 font-medium">{section.totalCapacity}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Available:</span>
-                            <span className="ml-2 font-medium text-green-600">
-                              {section.available}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Sold:</span>
-                            <span className="ml-2 font-medium text-blue-600">
-                              {section.allocated}
-                            </span>
-                          </div>
-                        </div>
+                        )}
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(section)}
-                          className="text-blue-600 hover:text-blue-700 p-2 rounded hover:bg-blue-50 transition-colors"
-                          title="Edit section"
-                        >
-                          <Edit size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(section.id)}
-                          className="text-red-600 hover:text-red-700 p-2 rounded hover:bg-red-50 transition-colors"
-                          title="Delete section"
-                          disabled={section.allocated > 0}
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm text-muted-foreground">
+                        <div>Price: <span className="font-medium text-foreground">{section.price === 0 ? 'Free' : `$${section.price.toFixed(2)}`}</span></div>
+                        <div>Capacity: <span className="font-medium text-foreground">{section.totalCapacity}</span></div>
+                        <div>Available: <span className="font-medium text-green-500">{section.available}</span></div>
+                        <div>Allocated: <span className="font-medium text-orange-500">{section.allocated}</span></div>
                       </div>
                     </div>
-                    {section.allocated > 0 && (
-                      <p className="text-xs text-amber-600 mt-2">
-                        ⚠️ Cannot delete - tickets already allocated
-                      </p>
-                    )}
+                    <div className="flex gap-2 flex-shrink-0">
+                        <button
+                            onClick={() => handleEdit(section)}
+                            className="p-2 rounded-full hover:bg-secondary transition-colors"
+                            title="Edit section"
+                        >
+                            <Edit size={18} />
+                        </button>
+                        <button
+                            onClick={() => handleDelete(section.id)}
+                            className="p-2 rounded-full hover:bg-destructive/20 text-destructive transition-colors"
+                            title="Delete section"
+                            disabled={section.allocated > 0}
+                        >
+                            <Trash2 size={18} />
+                        </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -321,7 +277,7 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
               {!isAdding && (
                 <button
                   onClick={() => setIsAdding(true)}
-                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors flex items-center justify-center gap-2"
+                  className="w-full border-2 border-dashed border-border rounded-lg p-4 text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2 mt-4"
                 >
                   <Plus size={20} />
                   Add Another Section
@@ -330,202 +286,164 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
             </>
           )}
 
-          {/* Add/Edit Section Form */}
           {isAdding && (
-            <div className="border-2 border-blue-300 rounded-lg p-6 bg-blue-50">
-              <h3 className="font-semibold text-lg mb-4">
-                {editingSection ? 'Edit Section' : 'Add New Section'}
-              </h3>
+            <div className="border border-primary rounded-lg p-6 bg-primary/10 mt-6">
+              <h3 className="font-bold text-xl mb-4">{editingSection ? 'Edit Section' : 'Add New Section'}</h3>
 
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Section Name *
-                  </label>
+                <div className="space-y-2">
+                  <label htmlFor="sectionName" className="text-sm font-semibold">Section Name</label>
                   <input
                     type="text"
+                    id="sectionName"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g., General Admission, VIP, Balcony"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full bg-input rounded-md border px-3 py-2 text-sm"
                   />
                 </div>
 
                 {!editingSection && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Section Type *
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Section Type</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <button
                         type="button"
                         onClick={() => handleTypeChange('GENERAL')}
-                        className={`p-4 border-2 rounded-lg text-left transition-all ${
+                        className={`p-4 border rounded-lg text-left transition-all ${
                           formData.type === 'GENERAL'
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-300 hover:border-blue-300'
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border hover:border-secondary'
                         }`}
                       >
-                        <div className="font-semibold">General Admission</div>
-                        <div className="text-xs text-gray-600 mt-1">
-                          First come, first served
-                        </div>
+                        <div className="font-bold">General Admission</div>
+                        <div className="text-xs text-muted-foreground mt-1">First come, first served.</div>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleTypeChange('ASSIGNED')}
-                        className={`p-4 border-2 rounded-lg text-left transition-all ${
+                        className={`p-4 border rounded-lg text-left transition-all ${
                           formData.type === 'ASSIGNED'
-                            ? 'border-purple-500 bg-purple-50'
-                            : 'border-gray-300 hover:border-purple-300'
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border hover:border-secondary'
                         }`}
                       >
-                        <div className="font-semibold">Assigned Seating</div>
-                        <div className="text-xs text-gray-600 mt-1">
-                          Specific seat selection
-                        </div>
+                        <div className="font-bold">Assigned Seating</div>
+                        <div className="text-xs text-muted-foreground mt-1">Specific seat selection.</div>
                       </button>
                     </div>
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Price ($) *
-                    </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="price" className="text-sm font-semibold">Price ($)</label>
                     <input
                       type="number"
+                      id="price"
                       min="0"
                       step="0.01"
                       value={formData.price}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === '') {
-                          setFormData({ ...formData, price: 0 });
-                        } else {
-                          setFormData({ ...formData, price: parseFloat(value) || 0 });
-                        }
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                      className="w-full bg-input rounded-md border px-3 py-2 text-sm"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Total Capacity *
+                  <div className="space-y-2">
+                    <label htmlFor="totalCapacity" className="text-sm font-semibold">
+                      Total Capacity
                       {editingSection && editingSection.allocated > 0 && (
-                        <span className="text-xs text-amber-600 ml-2">
-                          (Min: {editingSection.allocated} - tickets already sold)
-                        </span>
+                        <span className="ml-2 text-xs text-orange-500">(Min: {editingSection.allocated})</span>
                       )}
                     </label>
                     <input
                       type="number"
+                      id="totalCapacity"
                       min={editingSection?.allocated || 1}
                       value={formData.totalCapacity}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === '') {
-                          setFormData({ ...formData, totalCapacity: 0 });
-                        } else {
-                          handleCapacityChange(parseInt(value) || 0);
-                        }
-                      }}
-                      onBlur={() => {
-                        // Set minimum value on blur if empty
+                      onChange={(e) => handleCapacityChange(parseInt(e.target.value) || 0)}
+                      onBlur={(e) => {
                         const minCapacity = editingSection?.allocated || 1;
-                        if (formData.totalCapacity < minCapacity) {
-                          handleCapacityChange(minCapacity);
+                        if (parseInt(e.target.value) < minCapacity) {
+                            handleCapacityChange(minCapacity);
                         }
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full bg-input rounded-md border px-3 py-2 text-sm"
                       disabled={!!(editingSection && editingSection.allocated === editingSection.totalCapacity)}
                     />
                     {editingSection && editingSection.allocated === editingSection.totalCapacity && (
-                      <p className="text-xs text-amber-600 mt-1">
-                        Cannot change capacity - all seats are sold
-                      </p>
+                      <p className="text-xs text-orange-500 mt-1">Cannot change capacity - all seats are sold.</p>
                     )}
                   </div>
                 </div>
 
-                {!editingSection && formData.type === 'ASSIGNED' && formData.generateSeats && (
-                  <div className="bg-white border border-purple-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-3">
+                {!editingSection && formData.type === 'ASSIGNED' && (
+                  <div className="space-y-2 p-4 border rounded-lg bg-background">
+                    <div className="flex items-center gap-2">
                       <input
                         type="checkbox"
+                        id="generateSeats"
                         checked={formData.generateSeats}
-                        onChange={(e) =>
-                          setFormData({ ...formData, generateSeats: e.target.checked })
-                        }
-                        className="w-4 h-4"
+                        onChange={(e) => setFormData({ ...formData, generateSeats: e.target.checked })}
+                        className="w-4 h-4 rounded text-primary focus:ring-primary"
                       />
-                      <label className="text-sm font-medium text-gray-700">
-                        Auto-generate seats
-                      </label>
+                      <label htmlFor="generateSeats" className="text-sm font-semibold">Auto-generate Seats</label>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Rows</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={formData.rows}
-                          onChange={(e) => {
-                            const rows = parseInt(e.target.value) || 1;
-                            const seatsPerRow = formData.seatsPerRow || 1;
-                            setFormData({
-                              ...formData,
-                              rows,
-                              totalCapacity: rows * seatsPerRow,
-                            });
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                        />
+                    {formData.generateSeats && (
+                      <div className="grid grid-cols-2 gap-4 mt-2">
+                        <div className="space-y-2">
+                          <label htmlFor="rows" className="text-xs font-semibold text-muted-foreground">Rows</label>
+                          <input
+                            type="number"
+                            id="rows"
+                            min="1"
+                            value={formData.rows}
+                            onChange={(e) => {
+                              const rows = parseInt(e.target.value) || 1;
+                              const seatsPerRow = formData.seatsPerRow || 1;
+                              setFormData({ ...formData, rows, totalCapacity: rows * seatsPerRow });
+                            }}
+                            className="w-full bg-input rounded-md border px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label htmlFor="seatsPerRow" className="text-xs font-semibold text-muted-foreground">Seats per Row</label>
+                          <input
+                            type="number"
+                            id="seatsPerRow"
+                            min="1"
+                            value={formData.seatsPerRow}
+                            onChange={(e) => {
+                              const seatsPerRow = parseInt(e.target.value) || 1;
+                              const rows = formData.rows || 1;
+                              setFormData({ ...formData, seatsPerRow, totalCapacity: rows * seatsPerRow });
+                            }}
+                            className="w-full bg-input rounded-md border px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <p className="col-span-2 text-xs text-muted-foreground mt-1">
+                          Generates {formData.rows || 0} × {formData.seatsPerRow || 0} = {(formData.rows || 0) * (formData.seatsPerRow || 0)} seats.
+                        </p>
                       </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Seats per Row</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={formData.seatsPerRow}
-                          onChange={(e) => {
-                            const seatsPerRow = parseInt(e.target.value) || 1;
-                            const rows = formData.rows || 1;
-                            setFormData({
-                              ...formData,
-                              seatsPerRow,
-                              totalCapacity: rows * seatsPerRow,
-                            });
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Will generate {formData.rows || 0} × {formData.seatsPerRow || 0} ={' '}
-                      {(formData.rows || 0) * (formData.seatsPerRow || 0)} seats
-                    </p>
+                    )}
                   </div>
                 )}
-
+                
                 <div className="flex gap-3 pt-2">
                   <button
                     onClick={editingSection ? handleUpdate : handleCreate}
-                    disabled={!formData.name || formData.totalCapacity < (editingSection?.allocated || 1)}
-                    className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                    disabled={!formData.name || formData.totalCapacity < (editingSection?.allocated || 1) || loading}
+                    className="flex-1 inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
                   >
                     <Save size={18} />
-                    {editingSection ? 'Update Section' : 'Create Section'}
+                    {editingSection ? 'Update Section' : 'Add Section'}
                   </button>
                   <button
                     onClick={() => {
                       setIsAdding(false);
                       resetForm();
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="px-5 py-2.5 border rounded-lg text-sm font-semibold hover:bg-secondary transition-colors"
                   >
                     Cancel
                   </button>
@@ -535,11 +453,10 @@ export const EventSectionsModal: React.FC<EventSectionsModalProps> = ({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="border-t p-6 bg-gray-50">
+        <div className="border-t p-6 flex justify-end">
           <button
             onClick={onClose}
-            className="w-full bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+            className="py-2.5 px-5 bg-secondary text-secondary-foreground rounded-lg font-semibold hover:bg-secondary/80"
           >
             Close
           </button>

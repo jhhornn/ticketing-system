@@ -1,7 +1,6 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { ModalProvider } from './context/ModalContext';
+import { AppProviders } from './providers/AppProviders';
+import { ProtectedRoute } from './routes/ProtectedRoute';
 import { MainLayout } from './components/layout/MainLayout';
 import { LoginPage } from './pages/Auth/LoginPage';
 import { RegisterPage } from './pages/Auth/RegisterPage';
@@ -16,19 +15,10 @@ import { CheckoutPage } from './pages/Bookings/CheckoutPage';
 import { VenuesPage } from './pages/Venues/VenuesPage';
 import { ProfilePage } from './pages/Profile/ProfilePage';
 
-// Simple protected route wrapper
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { token, isLoading } = useAuth();
-  if (isLoading) return <div>Loading...</div>;
-  if (!token) return <Navigate to="/login" />;
-  return <>{children}</>;
-};
-
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <ModalProvider>
+      <AppProviders>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
@@ -47,8 +37,7 @@ function App() {
               <Route path="settings" element={<div>Settings Component</div>} />
             </Route>
           </Routes>
-        </ModalProvider>
-      </AuthProvider>
+      </AppProviders>
     </BrowserRouter>
   );
 }

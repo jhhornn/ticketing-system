@@ -1,0 +1,1 @@
+export { RecommendedSeatsBanner } from './RecommendedSeatsBanner';

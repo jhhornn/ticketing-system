@@ -182,6 +182,11 @@
 // };
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { SeatSelectionCopy } from '../utils/uiCopy';
+import { useTimerErrorHandler } from './useErrorHandler';
+
+// Timer phase for dynamic UX messaging
+export type TimerPhase = 'calm' | 'focused' | 'urgent' | 'expired';
 
 interface UseReservationTimerProps {
   expiresAt: Date | string | null; // Allow string to be safe with API JSON responses
@@ -197,6 +202,12 @@ interface UseReservationTimerReturn {
   progressPercentage: number;
   reset: (newExpiresAt: Date) => void;
   clear: () => void;
+  
+  // New UX enhancements
+  timerPhase: TimerPhase;
+  phaseConfig: typeof SeatSelectionCopy.timer.phases[TimerPhase];
+  progressNarrative: string;
+  timerError: any; // Expose error state
 }
 
 export const useReservationTimer = ({
@@ -232,12 +243,21 @@ export const useReservationTimer = ({
   // 3. PROP SYNC (The Fix for Error #1)
   // If the prop changes (e.g. new reservation made), we update state *during render*.
   // React detects this, aborts the current render, and re-renders with the new state immediately.
+  // 3. PROP SYNC (The Fix for Error #1)
+  // If the prop changes (e.g. new reservation made), we update state *during render*.
+  // React detects this, aborts the current render, and re-renders with the new state immediately.
   if (targetTimestamp !== trackedTimestamp) {
     const newRemaining = calculateRemaining(targetTimestamp);
     setTrackedTimestamp(targetTimestamp);
     setTimeRemaining(newRemaining);
     setInitialDuration(newRemaining);
   }
+
+  // Error Handling Integration
+  const { handleError: handleTimerError, error: timerError } = useTimerErrorHandler(() => {
+    // Default action on expiry if handled via error (navigating to seat map etc)
+    if (onExpire) onExpire();
+  });
 
   // 4. REFS (For non-visual logic)
   const intervalRef = useRef<number | null>(null);
@@ -272,7 +292,10 @@ export const useReservationTimer = ({
           // Trigger callback safely
           if (!hasExpiredRef.current && onExpireRef.current) {
             hasExpiredRef.current = true;
-            onExpireRef.current();
+            
+            // Trigger Error Handler flow for consistency (optional)
+            // Ideally we just call onExpire, but to use the new logical:
+            handleTimerError({ reason: 'reservation_expired' });
           }
           return 0;
         }
@@ -285,7 +308,7 @@ export const useReservationTimer = ({
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   // We depend on targetTimestamp. The internal state 'timeRemaining' drives the cleanup naturally.
-  }, [targetTimestamp]); 
+  }, [targetTimestamp, handleTimerError]); 
 
   // 6. DERIVED UI HELPERS
   const isExpired = timeRemaining === 0 && targetTimestamp > 0;
@@ -302,6 +325,28 @@ export const useReservationTimer = ({
   const progressPercentage = initialDuration > 0
     ? Math.max(0, Math.min(100, (timeRemaining / initialDuration) * 100))
     : 0;
+
+  // 8. TIMER PHASE (New UX Enhancement)
+  // Determines tone: >5min = calm, 5-1min = focused, <1min = urgent
+  const timerPhase: TimerPhase = useMemo(() => {
+    if (isExpired) return 'expired';
+    if (timeRemaining < 60) return 'urgent';   // <1 min
+    if (timeRemaining < 300) return 'focused'; // 1-5 min
+    return 'calm';                              // >5 min
+  }, [timeRemaining, isExpired]);
+
+  // 9. PHASE CONFIG (Dynamic messaging)
+  const phaseConfig = useMemo(() => 
+    SeatSelectionCopy.timer.phases[timerPhase],
+    [timerPhase]
+  );
+
+  // 10. PROGRESS NARRATIVE (Dynamic status message)
+  const progressNarrative = useMemo(() => 
+    phaseConfig.progressNarrative,
+    [phaseConfig]
+  );
+
 
   // Manual Actions
   const reset = useCallback((newExpiresAt: Date) => {
@@ -329,5 +374,10 @@ export const useReservationTimer = ({
     progressPercentage,
     reset,
     clear,
+    // New UX enhancements
+    timerPhase,
+    phaseConfig,
+    progressNarrative,
+    timerError,
   };
 };
