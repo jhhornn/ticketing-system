@@ -1,0 +1,100 @@
+# Loki Configuration
+# WHY: Configures how Loki stores and indexes logs
+# RETENTION: Logs kept for 30 days (configurable)
+# INGESTION: Accepts logs from Promtail and apps
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+
+# Common configuration shared across components
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+# Query configuration
+# WHY: Controls how Grafana queries logs
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100
+
+# Schema configuration
+# WHY: Defines how logs are indexed for fast querying
+# HIGH CARDINALITY: request_id, user_id, etc. are indexed
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: boltdb-shipper
+      object_store: filesystem
+      schema: v11
+      index:
+        prefix: index_
+        period: 24h
+
+# Storage configuration
+# WHY: Local filesystem for development (use S3/GCS in production)
+storage_config:
+  boltdb_shipper:
+    active_index_directory: /loki/boltdb-shipper-active
+    cache_location: /loki/boltdb-shipper-cache
+    cache_ttl: 24h
+    shared_store: filesystem
+  filesystem:
+    directory: /loki/chunks
+
+# Limits configuration
+# WHY: Prevent resource exhaustion
+limits_config:
+  # Allow high cardinality labels (user_id, request_id, etc.)
+  # WHY: Wide events need many unique label values
+  max_label_names_per_series: 30
+  max_label_name_length: 1024
+  max_label_value_length: 2048
+  
+  # Ingestion rate limits
+  ingestion_rate_mb: 10
+  ingestion_burst_size_mb: 20
+  
+  # Query limits
+  max_query_series: 500
+  max_query_lookback: 30d
+  
+  # Retention (logs kept for 30 days)
+  # WHY: Balance storage cost vs. historical data access
+  retention_period: 720h
+
+# Compactor configuration
+# WHY: Cleans up old data, applies retention policies
+compactor:
+  working_directory: /loki/boltdb-shipper-compactor
+  shared_store: filesystem
+  retention_enabled: true
+  retention_delete_delay: 2h
+  retention_delete_worker_count: 150
+
+# Ruler configuration (for alerts)
+# WHY: Enable alerting based on log patterns
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /loki/rules
+  rule_path: /loki/rules-temp
+  alertmanager_url: http://localhost:9093
+  ring:
+    kvstore:
+      store: inmemory
+  enable_api: true
