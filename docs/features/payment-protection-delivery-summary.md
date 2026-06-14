@@ -55,22 +55,22 @@
 ## 📂 Files Created/Modified
 
 ### New Components
-- `src/frontend/src/components/PaymentProtection/PaymentProtectionBadge.tsx` (167 lines)
-- `src/frontend/src/components/PaymentProtection/SlowNetworkIndicator.tsx` (65 lines)
-- `src/frontend/src/components/PaymentProtection/IdempotencyReplayNotification.tsx` (105 lines)
-- `src/frontend/src/components/PaymentProtection/index.ts` (3 lines)
+- `apps/frontend/src/components/PaymentProtection/PaymentProtectionBadge.tsx` (167 lines)
+- `apps/frontend/src/components/PaymentProtection/SlowNetworkIndicator.tsx` (65 lines)
+- `apps/frontend/src/components/PaymentProtection/IdempotencyReplayNotification.tsx` (105 lines)
+- `apps/frontend/src/components/PaymentProtection/index.ts` (3 lines)
 
 ### New Hook
-- `src/frontend/src/hooks/usePaymentProtection.ts` (178 lines)
+- `apps/frontend/src/hooks/usePaymentProtection.ts` (178 lines)
 
 ### UI Copy
-- `src/frontend/src/utils/uiCopy.ts` - Added `PaymentProtectionCopy` object (130+ lines)
+- `apps/frontend/src/utils/uiCopy.ts` - Added `PaymentProtectionCopy` object (130+ lines)
 
 ### Integration
-- `src/frontend/src/pages/Bookings/CheckoutPage.tsx` - Integrated all features
+- `apps/frontend/src/pages/Bookings/CheckoutPage.tsx` - Integrated all features
 
 ### Styling
-- `src/frontend/src/styles/globals.css` - Added payment protection animations
+- `apps/frontend/src/styles/globals.css` - Added payment protection animations
 
 ### Documentation
 - `docs/features/payment-protection-ux.md` (500+ lines) - Complete feature documentation

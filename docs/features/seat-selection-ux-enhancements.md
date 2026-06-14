@@ -6,7 +6,7 @@ Enhanced the seat selection user experience to improve transparency and user tru
 
 ## Changes Made
 
-### 1. New Utility Functions (`src/frontend/src/utils/seatStatusUtils.ts`)
+### 1. New Utility Functions (`apps/frontend/src/utils/seatStatusUtils.ts`)
 
 **Purpose:** Provides human-readable explanations for seat status changes and availability issues.
 
@@ -40,7 +40,7 @@ Enhanced the seat selection user experience to improve transparency and user tru
 
 ---
 
-### 2. Status Change Tooltip Component (`src/frontend/src/components/SeatStatusTooltip/`)
+### 2. Status Change Tooltip Component (`apps/frontend/src/components/SeatStatusTooltip/`)
 
 **Purpose:** Displays short-lived (3-5 seconds) tooltips when seat status changes occur.
 
@@ -126,7 +126,7 @@ const detectStatusChanges = useCallback((oldMap: SeatMapData, newMap: SeatMapDat
 
 ---
 
-### 4. UI Copy Standards (`src/frontend/src/utils/uiCopy.ts`)
+### 4. UI Copy Standards (`apps/frontend/src/utils/uiCopy.ts`)
 
 **Purpose:** Centralized user-facing messages for consistency and maintainability.
 
@@ -237,14 +237,14 @@ The seat map has been refreshed with current availability."
 ## Files Changed
 
 ### New Files
-1. `src/frontend/src/utils/seatStatusUtils.ts` - Status explanation utilities
-2. `src/frontend/src/components/SeatStatusTooltip/SeatStatusTooltip.tsx` - Tooltip component
-3. `src/frontend/src/components/SeatStatusTooltip/SeatStatusTooltip.css` - Tooltip styles
-4. `src/frontend/src/components/SeatStatusTooltip/index.ts` - Barrel export
-5. `src/frontend/src/utils/uiCopy.ts` - Centralized UI copy
+1. `apps/frontend/src/utils/seatStatusUtils.ts` - Status explanation utilities
+2. `apps/frontend/src/components/SeatStatusTooltip/SeatStatusTooltip.tsx` - Tooltip component
+3. `apps/frontend/src/components/SeatStatusTooltip/SeatStatusTooltip.css` - Tooltip styles
+4. `apps/frontend/src/components/SeatStatusTooltip/index.ts` - Barrel export
+5. `apps/frontend/src/utils/uiCopy.ts` - Centralized UI copy
 
 ### Modified Files
-1. `src/frontend/src/components/EnhancedSeatMap/EnhancedSeatMap.tsx` - Main seat selection component
+1. `apps/frontend/src/components/EnhancedSeatMap/EnhancedSeatMap.tsx` - Main seat selection component
 
 ---
 

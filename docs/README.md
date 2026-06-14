@@ -4,6 +4,23 @@ Welcome to the Distributed Ticketing System documentation! This guide will help 
 
 ## 📚 Documentation Structure
 
+## ✅ Canonical Docs (Post-Consolidation)
+
+Use these as the primary sources of truth:
+
+- [setup.md](setup.md) - Local development and workspace commands
+- [architecture.md](architecture.md) - System design and booking flow architecture
+- [REST-API.md](REST-API.md) - Backend REST endpoints and contracts
+- [api-reference.md](api-reference.md) - Frontend API service usage
+- [security.md](security.md) - Current security posture and recommendations
+- [security/IMPLEMENTATION_GUIDE.md](security/IMPLEMENTATION_GUIDE.md) - Security rollout steps
+- [security/SECURITY_ANALYSIS_AND_FIXES.md](security/SECURITY_ANALYSIS_AND_FIXES.md) - Security and fraud prevention details
+- [error-translation-system.md](error-translation-system.md) - Error handling and translation architecture
+- [observability.md](observability.md) - Logging and observability model
+- [observability-getting-started.md](observability-getting-started.md) - Practical observability setup
+
+Historical duplicate summary docs were removed to keep maintenance centralized.
+
 ### Getting Started
 
 #### [Setup Guide](setup.md)

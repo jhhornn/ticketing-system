@@ -1,6 +1,6 @@
 # LogQL Query Cheat Sheet
 
-Quick reference for common Grafana Loki queries for the ticketing system.
+Quick reference for common Loki LogQL queries for the ticketing system.
 
 ## Basic Queries
 
@@ -326,7 +326,7 @@ avg_over_time({...} | json | unwrap duration_ms [5m])
 
 ## Testing Queries
 
-Use Grafana's **Explore** page to test queries:
+Use your Loki query interface (HTTP API, logcli, or your log UI) to test queries:
 1. Click "Explore" (compass icon)
 2. Select "Loki" datasource
 3. Paste query

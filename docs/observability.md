@@ -55,8 +55,8 @@ logger.info({
                                  │
                                  ↓
                         ┌─────────────────┐
-                        │    Grafana      │
-                        │  (Dashboards)   │
+                        │  Loki API/CLI   │
+                        │  (Log Queries)  │
                         └─────────────────┘
 ```
 
@@ -66,7 +66,7 @@ logger.info({
 2. **RequestContextService**: Maintains context throughout request using AsyncLocalStorage
 3. **LoggingMiddleware**: Automatically creates wide events for every request
 4. **Loki**: Stores logs with indexing for fast queries
-5. **Grafana**: Visualizes logs with powerful dashboards
+5. **Jaeger**: Visualizes distributed traces and spans
 
 ## 🚀 Quick Start
 
@@ -79,40 +79,37 @@ docker-compose -f docker-compose.observability.yml up -d
 
 2. **Start your API:**
 ```bash
-cd src/backend
+cd apps/backend
 pnpm run dev
 ```
 
-3. **Access Grafana:**
-- URL: http://localhost:3001
-- Username: `admin`
-- Password: `admin`
+3. **Query logs with Loki API:**
+```bash
+# List labels
+curl -G "http://localhost:3100/loki/api/v1/labels"
 
-4. **View logs:**
-- Go to "Explore" in Grafana
-- Select "Loki" datasource
-- Try example queries below
+# Query recent error logs
+curl -G "http://localhost:3100/loki/api/v1/query_range" \
+  --data-urlencode 'query={container="ticketing-api"} | json | outcome="error"' \
+  --data-urlencode 'limit=200'
+```
 
-### Grafana Cloud (Production)
+4. **Access traces in Jaeger:**
+- URL: http://localhost:16686
+- Filter by service name (for example: `ticketing-api`)
 
-1. **Sign up for Grafana Cloud:**
-- Visit: https://grafana.com/products/cloud/
-- Start free trial
+### Remote Loki (Optional)
 
-2. **Get your Loki credentials:**
-- Go to Cloud Portal → Loki → Details
-- Copy: URL, Username, Password
-
-3. **Configure environment variables:**
+If you ship logs to a managed Loki endpoint, configure:
 ```bash
 # .env
-LOKI_URL=https://logs-prod-xxx.grafana.net
+LOKI_URL=https://your-managed-loki-endpoint
 LOKI_USERNAME=your-username
 LOKI_PASSWORD=your-api-key
 LOKI_AUTH=true
 ```
 
-4. **Restart your API** - logs will automatically flow to Grafana Cloud
+Then restart your API so logs flow to the remote endpoint.
 
 ## 📝 Usage Examples
 
@@ -278,36 +275,24 @@ sum(rate({container="ticketing-api"} | json | path=~"/payment.*" | outcome="erro
 {container="ticketing-api"} | json | booking_total_cents > 500000
 ```
 
-## 🎨 Grafana Dashboard
+## 📈 Building Dashboards (Jaeger + Logs)
 
-### Pre-built Dashboard
+Use Jaeger for traces and build log-derived metrics from Loki queries in your preferred visualization tool.
 
-The system includes a pre-configured dashboard with:
+Common panels to build:
 - Requests per second
-- Success rate gauge
+- Success rate
 - Average response time
-- Recent errors table
+- Recent errors
 - Status code distribution
 - Top endpoints
-
-Access at: **Dashboards → Ticketing System → API Observability**
-
-### Creating Custom Panels
-
-1. Click "+" → "Dashboard"
-2. Add panel → Select "Loki" datasource
-3. Enter LogQL query
-4. Choose visualization (Time series, Table, Gauge, etc.)
-5. Save dashboard
 
 ## 🔔 Setting Up Alerts
 
 ### Example: High Error Rate Alert
 
-1. Go to your dashboard panel
-2. Click panel title → "Edit"
-3. Go to "Alert" tab
-4. Create alert rule:
+1. Create an alert in your monitoring tool based on the query below.
+2. Use this threshold baseline:
 
 ```yaml
 Query: sum(rate({container="ticketing-api"} | json | outcome="error" [5m]))
@@ -316,7 +301,7 @@ Evaluate every: 1m
 For: 5m
 ```
 
-5. Add notification channel (Slack, Email, PagerDuty)
+3. Add notification channels (Slack, Email, PagerDuty).
 
 ### Recommended Alerts
 
@@ -416,12 +401,12 @@ this.requestContext.addBusinessContext({
 
 ## 🐛 Troubleshooting
 
-### Logs not appearing in Grafana
+### Logs not appearing in Loki
 
 1. **Check Docker containers:**
 ```bash
 docker ps
-# Should see: loki, promtail, grafana
+# Should see: loki, promtail
 ```
 
 2. **Check Loki is receiving logs:**
@@ -441,12 +426,11 @@ docker logs ticketing-promtail
 docker logs <your-app-container>
 ```
 
-### Grafana showing "No data"
+### Loki query returns no data
 
 1. Check time range (top right) - try "Last 15 minutes"
-2. Verify datasource is configured (Settings → Data Sources → Loki)
-3. Try simple query: `{container="ticketing-api"}`
-4. Check container name matches in promtail config
+2. Try simple query: `{container="ticketing-api"}`
+3. Check container name matches labels in promtail config
 
 ### High Loki memory usage
 
@@ -459,7 +443,7 @@ docker logs <your-app-container>
 - [Wide Events 101](https://boristane.com/blog/observability-wide-events-101/)
 - [Stripe: Canonical Log Lines](https://stripe.com/blog/canonical-log-lines)
 - [LoggingSucks.com](https://loggingsucks.com)
-- [Grafana Loki Documentation](https://grafana.com/docs/loki/latest/)
+- [Loki Documentation](https://grafana.com/docs/loki/latest/)
 - [LogQL Query Language](https://grafana.com/docs/loki/latest/logql/)
 
 ## 🤝 Contributing
@@ -468,7 +452,7 @@ When adding new features:
 1. Use RequestContextService to add business context
 2. Never use console.log - use the logger
 3. Include relevant business fields in context
-4. Update dashboard if adding important new metrics
+4. Update Jaeger/Loki runbooks if adding important new metrics
 5. Document new LogQL queries for your feature
 
 ---

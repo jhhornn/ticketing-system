@@ -423,8 +423,8 @@ export const CheckoutPage = () => {
 
 For questions or issues:
 - Review full documentation: [payment-protection-ux.md](./payment-protection-ux.md)
-- Check component code: `src/frontend/src/components/PaymentProtection/`
-- Test hook behavior: `src/frontend/src/hooks/usePaymentProtection.ts`
+- Check component code: `apps/frontend/src/components/PaymentProtection/`
+- Test hook behavior: `apps/frontend/src/hooks/usePaymentProtection.ts`
 
 ---
 

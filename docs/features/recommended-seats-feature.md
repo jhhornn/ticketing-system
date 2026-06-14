@@ -8,7 +8,7 @@ This feature provides intelligent seat recommendations based on contiguity, pric
 
 ### 1. `seatRecommendations.ts` - Algorithm Engine
 
-**Location:** `src/frontend/src/utils/seatRecommendations.ts`
+**Location:** `apps/frontend/src/utils/seatRecommendations.ts`
 
 **Core Functions:**
 
@@ -64,7 +64,7 @@ const recommendations = getRecommendedSeats(seatMap, {
 
 ### 2. `RecommendedSeatsBanner` - UI Component
 
-**Location:** `src/frontend/src/components/RecommendedSeatsBanner/`
+**Location:** `apps/frontend/src/components/RecommendedSeatsBanner/`
 
 **Features:**
 - Lightweight, collapsible banner
@@ -105,7 +105,7 @@ import { RecommendedSeatsBanner } from './components/RecommendedSeatsBanner';
 
 ### 3. Visual Highlighting - CSS Enhancements
 
-**Location:** `src/frontend/src/components/EnhancedSeatMap/EnhancedSeatMap.css`
+**Location:** `apps/frontend/src/components/EnhancedSeatMap/EnhancedSeatMap.css`
 
 **Recommended Seat Styles:**
 

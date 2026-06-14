@@ -20,7 +20,7 @@ This document provides specific, actionable optimization recommendations based o
 
 **Current Issue:** Multiple sequential database queries in booking confirmation flow.
 
-**Location:** `src/backend/api/booking/booking.service.ts`
+**Location:** `apps/backend/api/booking/booking.service.ts`
 
 **Current Code:**
 ```typescript
@@ -73,7 +73,7 @@ const reservation = await this.prisma.reservation.findFirst({
 
 **Current Issue:** High-frequency reads for seat availability without caching.
 
-**Location:** `src/backend/api/events/events.service.ts`
+**Location:** `apps/backend/api/events/events.service.ts`
 
 **Current Code:**
 ```typescript
@@ -142,7 +142,7 @@ async updateSection(id: number, data: UpdateData) {
 
 **Current Issue:** Discount validation queries database on every booking.
 
-**Location:** `src/backend/api/discounts/discounts.service.ts`
+**Location:** `apps/backend/api/discounts/discounts.service.ts`
 
 **Optimization:**
 ```typescript
@@ -203,7 +203,7 @@ async deactivateDiscount(id: number) {
 
 **Current Issue:** Acquiring individual seat locks for GA tickets is unnecessary overhead.
 
-**Location:** `src/backend/api/booking/booking.service.ts`
+**Location:** `apps/backend/api/booking/booking.service.ts`
 
 **Current Code:**
 ```typescript
@@ -252,7 +252,7 @@ async confirmBooking(dto: ConfirmBookingDto) {
 
 **Current Issue:** Expiry check runs every minute, processing all reservations.
 
-**Location:** `src/backend/api/reservation/reservation.service.ts` (scheduled task)
+**Location:** `apps/backend/api/reservation/reservation.service.ts` (scheduled task)
 
 **Optimization:**
 ```typescript
@@ -356,7 +356,7 @@ WHERE is_active = true;
 
 **Recommendation:**
 ```typescript
-// New file: src/backend/common/pricing/pricing.service.ts
+// New file: apps/backend/common/pricing/pricing.service.ts
 @Injectable()
 export class PricingService {
   calculateTotalAmount(reservations: Reservation[]): number {
@@ -457,7 +457,7 @@ if (reservation.expiresAt < new Date()) {
 
 ### 9. Implement Route-Based Code Splitting
 
-**File:** `src/frontend/src/App.tsx`
+**File:** `apps/frontend/src/App.tsx`
 
 **Optimization:**
 ```typescript

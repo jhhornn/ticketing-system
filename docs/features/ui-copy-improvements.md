@@ -337,7 +337,7 @@ the time shown above.
 ## Implementation Notes
 
 All messages are:
-- **Centralized** in `src/frontend/src/utils/uiCopy.ts`
+- **Centralized** in `apps/frontend/src/utils/uiCopy.ts`
 - **Reusable** via exported functions
 - **Testable** in isolation
 - **Maintainable** in one location

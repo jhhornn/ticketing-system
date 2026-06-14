@@ -398,7 +398,7 @@ Shows: "Extend Time" button
 
 ## Copy Customization
 
-Edit `src/frontend/src/utils/uiCopy.ts`:
+Edit `apps/frontend/src/utils/uiCopy.ts`:
 
 ```typescript
 timer: {
@@ -531,7 +531,7 @@ New features are additive, not breaking!
 ## Files Reference
 
 ```
-src/frontend/src/
+apps/frontend/src/
 ├── utils/
 │   └── uiCopy.ts                    (Copy with timer.phases)
 ├── hooks/

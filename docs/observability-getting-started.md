@@ -4,7 +4,7 @@ This guide walks you through setting up observability for the ticketing system f
 
 ## 🎯 What You'll Learn
 
-- How to run the local observability stack (Grafana + Loki)
+- How to run the local observability stack (Loki + Promtail)
 - How to view and query logs
 - How to add business context to your code
 - How to create alerts
@@ -16,33 +16,24 @@ This guide walks you through setting up observability for the ticketing system f
 
 ## Step 1: Start the Observability Stack (5 minutes)
 
-### Start Loki + Grafana
+### Start Loki + Promtail
 
 ```bash
 # From the project root
 docker-compose -f docker-compose.observability.yml up -d
 
 # Verify containers are running
-docker ps | grep -E "loki|grafana|promtail"
+docker ps | grep -E "loki|promtail"
 ```
 
-You should see three containers:
+You should see two containers:
 - `ticketing-loki` (port 3100)
-- `ticketing-grafana` (port 3001)
 - `ticketing-promtail`
-
-### Access Grafana
-
-1. Open http://localhost:3001
-2. Login with:
-   - Username: `admin`
-   - Password: `admin`
-3. Skip password change (or set a new one)
 
 ## Step 2: Start Your API (2 minutes)
 
 ```bash
-cd src/backend
+cd apps/backend
 pnpm run dev
 ```
 
@@ -63,21 +54,21 @@ Your API will start logging structured JSON events. Example:
 }
 ```
 
-## Step 3: View Logs in Grafana (5 minutes)
+## Step 3: View Logs from Loki (5 minutes)
 
-### Open Explore
+### Run Your First Query (Loki HTTP API)
 
-1. Click the **Explore** icon (compass) in the left sidebar
-2. Select **Loki** from the datasource dropdown (top)
+Use this query via API:
+```bash
+curl -G "http://localhost:3100/loki/api/v1/query_range" \
+  --data-urlencode 'query={container="ticketing-api"} | json' \
+  --data-urlencode 'limit=200'
+```
 
-### Run Your First Query
-
-Paste this query and click "Run query":
+You should see your API logs. Try these LogQL expressions:
 ```logql
 {container="ticketing-api"} | json
 ```
-
-You should see your API logs! Try these:
 
 **Show only errors:**
 ```logql
@@ -94,18 +85,11 @@ You should see your API logs! Try these:
 {container="ticketing-api"} | json | user_id="1"
 ```
 
-## Step 4: Open the Pre-built Dashboard (2 minutes)
+## Step 4: Open Jaeger for Traces (2 minutes)
 
-1. Click **Dashboards** (four squares icon) in the left sidebar
-2. Navigate to: **Ticketing System** → **API Observability**
-
-You'll see:
-- 📊 Requests per second
-- ✅ Success rate
-- ⏱️ Average response time
-- ❌ Recent errors
-- 📈 Status code distribution
-- 🔝 Top endpoints
+1. Open http://localhost:16686
+2. Select your service (for example: `ticketing-api`)
+3. Inspect request traces and span timings
 
 ## Step 5: Generate Some Traffic (5 minutes)
 
@@ -128,8 +112,7 @@ curl -X POST http://localhost:3000/events/1/reservations \
   -H "Content-Type: application/json" \
   -d '{"seatIds":[1,2]}'
 
-# 3. View in Grafana
-# Go back to Grafana → Explore → Run:
+# 3. Query logs in Loki (same query as Step 3)
 ```
 
 Query to see your reservations:
@@ -143,7 +126,7 @@ Now let's add custom business context to your logs!
 
 ### Example: Add context in a service
 
-Open any service file (e.g., `src/backend/api/booking/booking.service.ts`):
+Open any service file (e.g., `apps/backend/api/booking/booking.service.ts`):
 
 ```typescript
 import { RequestContextService } from '@/common/logger';
@@ -222,7 +205,7 @@ Let's create an alert for high error rates!
 
 ### 1. Create Alert Rule
 
-1. Go to **Alerting** → **Alert rules** → **Create alert rule**
+1. Open your alerting system and create a rule from this query.
 
 2. **Set query:**
    - Query: 
@@ -250,55 +233,39 @@ curl http://localhost:3000/bookings/99999
 curl http://localhost:3000/events/invalid
 ```
 
-Wait 5 minutes, then check **Alerting** → **Alert rules**
+Wait 5 minutes, then verify the rule evaluates and fires correctly.
 
-## Step 9: Grafana Cloud Setup (Optional - 10 minutes)
+## Step 9: Remote Loki Setup (Optional - 10 minutes)
 
-For production, use Grafana Cloud (free tier available).
-
-### 1. Sign Up
-
-1. Go to https://grafana.com/auth/sign-up/create-user
-2. Create account
-3. Create a stack (e.g., "ticketing-prod")
-
-### 2. Get Loki Credentials
-
-1. In Grafana Cloud Portal → **Loki** → **Details**
-2. Copy:
-   - URL (e.g., `https://logs-prod-xxx.grafana.net`)
-   - Username (numeric ID)
-3. Generate API key → Copy password
-
-### 3. Configure Your API
+If you use a managed Loki provider, configure your API with remote credentials.
 
 Add to your `.env`:
 ```bash
-LOKI_URL=https://logs-prod-xxx.grafana.net
+LOKI_URL=https://your-managed-loki-endpoint
 LOKI_AUTH=true
 LOKI_USERNAME=123456
 LOKI_PASSWORD=glc_xxx_your_api_key
 ```
 
-### 4. Restart API
+Restart API:
 
 ```bash
 pnpm run dev
 ```
 
-Logs now go to Grafana Cloud! View at `https://your-org.grafana.net`
+Logs now go to your managed Loki endpoint.
 
 ## 🎓 Next Steps
 
 ### Learn LogQL
 
 - Read: [LogQL Cheat Sheet](./logql-cheatsheet.md)
-- Practice queries in Grafana Explore
+- Practice queries with the Loki API or your preferred log UI
 - Start with simple queries, build complexity
 
-### Customize Dashboards
+### Build Dashboards
 
-1. Clone the default dashboard
+1. Create panels from the LogQL queries above
 2. Add panels for your specific metrics
 3. Share with your team
 
@@ -323,7 +290,7 @@ Create alerts for:
 
 - [Full Observability Guide](./observability.md)
 - [Wide Events Pattern](../.claude/skills/logging-best-practices/SKILL.md)
-- [Grafana Loki Docs](https://grafana.com/docs/loki/latest/)
+- [Loki Docs](https://grafana.com/docs/loki/latest/)
 
 ## 🐛 Troubleshooting
 
@@ -331,7 +298,7 @@ Create alerts for:
 
 **Check containers are running:**
 ```bash
-docker ps | grep -E "loki|grafana|promtail"
+docker ps | grep -E "loki|promtail"
 ```
 
 **Check Loki health:**
@@ -353,12 +320,11 @@ curl http://localhost:3000/events
 docker logs <your-api-container>
 ```
 
-### Grafana shows "No data"?
+### Loki query returns no data?
 
 1. Check time range (top right) - try "Last 15 minutes"
 2. Try simple query: `{container="ticketing-api"}`
-3. Verify datasource: **Settings** → **Data Sources** → **Loki**
-4. Check container label in query matches your actual container name
+3. Check container label in query matches your actual container name
 
 ### High memory usage?
 
@@ -371,7 +337,7 @@ docker logs <your-api-container>
 - [Observability Guide](./observability.md) - Full documentation
 - [LogQL Cheat Sheet](./logql-cheatsheet.md) - Query reference
 - [Logging Best Practices](../.claude/skills/logging-best-practices/SKILL.md)
-- [Grafana Docs](https://grafana.com/docs/)
+- [Loki Docs](https://grafana.com/docs/loki/latest/)
 
 ---
 

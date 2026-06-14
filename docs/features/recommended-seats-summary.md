@@ -10,7 +10,7 @@ A frontend-only intelligent seat recommendation system that helps users find opt
 
 ### 1. **Recommendation Algorithm** (`seatRecommendations.ts`)
 
-**Location:** `src/frontend/src/utils/seatRecommendations.ts`
+**Location:** `apps/frontend/src/utils/seatRecommendations.ts`
 
 **Core Algorithm:**
 - **Contiguity Score (40%):** Prioritizes seats together in the same row
@@ -39,7 +39,7 @@ getSeatRecommendationRank(seatId, recommendations)
 
 ### 2. **RecommendedSeatsBanner Component**
 
-**Location:** `src/frontend/src/components/RecommendedSeatsBanner/`
+**Location:** `apps/frontend/src/components/RecommendedSeatsBanner/`
 
 **Features:**
 - ✨ Lightweight, non-intrusive banner design
@@ -60,7 +60,7 @@ getSeatRecommendationRank(seatId, recommendations)
 
 ### 3. **Visual Highlighting** (CSS)
 
-**Location:** `src/frontend/src/components/EnhancedSeatMap/EnhancedSeatMap.css`
+**Location:** `apps/frontend/src/components/EnhancedSeatMap/EnhancedSeatMap.css`
 
 **Recommended Seat Styling:**
 ```css
@@ -356,7 +356,7 @@ Expected: Finds largest contiguous block
 ## 📚 Files Created
 
 ```
-src/frontend/src/
+apps/frontend/src/
 ├── utils/
 │   └── seatRecommendations.ts          (Algorithm + utilities)
 ├── components/

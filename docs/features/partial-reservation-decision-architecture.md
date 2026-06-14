@@ -582,5 +582,5 @@ Output:
 ---
 
 **Last Updated:** January 30, 2026  
-**Component:** `src/frontend/src/components/PartialReservationModal/`  
-**Copy:** `src/frontend/src/utils/uiCopy.ts` (SeatSelectionCopy.partialSuccess.modal)
+**Component:** `apps/frontend/src/components/PartialReservationModal/`  
+**Copy:** `apps/frontend/src/utils/uiCopy.ts` (SeatSelectionCopy.partialSuccess.modal)

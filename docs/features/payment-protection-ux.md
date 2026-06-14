@@ -558,18 +558,18 @@ Added to `globals.css`:
 
 ### Code Locations
 
-- **Components:** `src/frontend/src/components/PaymentProtection/`
-- **Hook:** `src/frontend/src/hooks/usePaymentProtection.ts`
-- **Copy:** `src/frontend/src/utils/uiCopy.ts` (PaymentProtectionCopy)
-- **Integration:** `src/frontend/src/pages/Bookings/CheckoutPage.tsx`
-- **Styles:** `src/frontend/src/styles/globals.css`
+- **Components:** `apps/frontend/src/components/PaymentProtection/`
+- **Hook:** `apps/frontend/src/hooks/usePaymentProtection.ts`
+- **Copy:** `apps/frontend/src/utils/uiCopy.ts` (PaymentProtectionCopy)
+- **Integration:** `apps/frontend/src/pages/Bookings/CheckoutPage.tsx`
+- **Styles:** `apps/frontend/src/styles/globals.css`
 
 ### Analytics Integration
 
 Replace console logging in `usePaymentProtection.trackEvent()` with your analytics service:
 
 ```typescript
-// File: src/frontend/src/hooks/usePaymentProtection.ts
+// File: apps/frontend/src/hooks/usePaymentProtection.ts
 // Line: ~90
 
 const trackEvent = useCallback((eventName: string, metadata?: Record<string, unknown>) => {

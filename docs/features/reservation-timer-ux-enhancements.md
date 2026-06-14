@@ -566,7 +566,7 @@ return (
 ## 📁 Files Created/Modified
 
 ```
-src/frontend/src/
+apps/frontend/src/
 ├── utils/
 │   └── uiCopy.ts                       (MODIFIED: Added timer.phases)
 ├── hooks/

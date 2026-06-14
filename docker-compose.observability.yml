@@ -1,18 +1,16 @@
-# Grafana Observability Stack - Docker Compose
+# Observability Stack - Docker Compose
 # 
 # WHY THIS STACK:
-# - Grafana: Visualization and dashboards
 # - Loki: Log aggregation (like Elasticsearch but cheaper/simpler)
 # - Promtail: Log collector (sends logs from files to Loki)
 #
 # OBSERVABILITY FLOW:
 # 1. Your app writes JSON logs to stdout/files
 # 2. Promtail collects logs and sends to Loki
-# 3. Grafana queries Loki and displays in dashboards
 #
 # ALTERNATIVES:
-# - For production, use Grafana Cloud (managed, scalable)
-# - For local dev, use this docker-compose (free, fast)
+# - For tracing visualization, use Jaeger
+# - For local log aggregation, use this docker-compose
 
 version: '3.8'
 
@@ -51,34 +49,9 @@ services:
     depends_on:
       - loki
 
-  # Grafana: Visualization platform
-  # WHY: Beautiful dashboards, powerful querying (LogQL)
-  # ACCESS: http://localhost:3001 (admin/admin)
-  grafana:
-    image: grafana/grafana:10.1.0
-    container_name: ticketing-grafana
-    ports:
-      - "3001:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-      # Auto-provision Loki as a data source
-      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./observability/grafana/provisioning:/etc/grafana/provisioning
-      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards
-    networks:
-      - observability
-    restart: unless-stopped
-    depends_on:
-      - loki
-
 networks:
   observability:
     driver: bridge
 
 volumes:
   loki-data:
-  grafana-data:

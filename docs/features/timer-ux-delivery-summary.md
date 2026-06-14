@@ -262,7 +262,7 @@ See `timer-integration-guide.md` for complete examples.
 
 ### Created
 ```
-src/frontend/src/components/TimerInfoTooltip/
+apps/frontend/src/components/TimerInfoTooltip/
 ├── TimerInfoTooltip.tsx       (92 lines)
 ├── TimerInfoTooltip.css       (180 lines)
 └── index.ts                   (1 line)
@@ -274,8 +274,8 @@ docs/features/
 
 ### Modified
 ```
-src/frontend/src/utils/uiCopy.ts          (+40 lines)
-src/frontend/src/hooks/useReservationTimer.ts  (+35 lines)
+apps/frontend/src/utils/uiCopy.ts          (+40 lines)
+apps/frontend/src/hooks/useReservationTimer.ts  (+35 lines)
 ```
 
 **Total additions:** ~2,100 lines (including documentation)
@@ -408,9 +408,9 @@ describe('useReservationTimer', () => {
 
 - Full design spec: `docs/features/reservation-timer-ux-enhancements.md`
 - Integration examples: `docs/features/timer-integration-guide.md`
-- Hook source: `src/frontend/src/hooks/useReservationTimer.ts`
-- Copy source: `src/frontend/src/utils/uiCopy.ts`
-- Tooltip component: `src/frontend/src/components/TimerInfoTooltip/`
+- Hook source: `apps/frontend/src/hooks/useReservationTimer.ts`
+- Copy source: `apps/frontend/src/utils/uiCopy.ts`
+- Tooltip component: `apps/frontend/src/components/TimerInfoTooltip/`
 
 ---
 
