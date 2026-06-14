@@ -1,7 +1,6 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { z } from 'zod';
 import { EventsTool } from './tools/events.tool.js';
 import { SeatsTool } from './tools/seats.tool.js';
 
@@ -20,9 +19,9 @@ export class McpService implements OnModuleInit {
     });
   }
 
-  onModuleInit() {
+  async onModuleInit(): Promise<void> {
     this.registerTools();
-    this.startServer();
+    await this.startServer();
   }
 
   private registerTools() {
@@ -32,11 +31,12 @@ export class McpService implements OnModuleInit {
       'List upcoming events',
       EventsTool.listEventsSchema.shape as any,
       async (args: any) => {
-        const result = await this.eventsTool.listEvents(args);
+        const parsedArgs = EventsTool.listEventsSchema.parse(args);
+        const result = await this.eventsTool.listEvents(parsedArgs);
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result) }],
         };
-      }
+      },
     );
 
     // Tool: get_event_details
@@ -45,11 +45,12 @@ export class McpService implements OnModuleInit {
       'Get detailed information about a specific event',
       EventsTool.getEventDetailsSchema.shape as any,
       async (args: any) => {
-        const result = await this.eventsTool.getEventDetails(args);
+        const parsedArgs = EventsTool.getEventDetailsSchema.parse(args);
+        const result = await this.eventsTool.getEventDetails(parsedArgs);
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result) }],
         };
-      }
+      },
     );
 
     // Tool: list_available_seats
@@ -58,11 +59,12 @@ export class McpService implements OnModuleInit {
       'List available seats for an event (capped at 50)',
       SeatsTool.listAvailableSeatsSchema.shape as any,
       async (args: any) => {
-        const result = await this.seatsTool.listAvailableSeats(args);
+        const parsedArgs = SeatsTool.listAvailableSeatsSchema.parse(args);
+        const result = await this.seatsTool.listAvailableSeats(parsedArgs);
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result) }],
         };
-      }
+      },
     );
 
     // Tool: get_seat_availability_summary
@@ -71,11 +73,12 @@ export class McpService implements OnModuleInit {
       'Get a summary of seat availability by type and status',
       SeatsTool.getSeatSummarySchema.shape as any,
       async (args: any) => {
-        const result = await this.seatsTool.getSeatSummary(args);
+        const parsedArgs = SeatsTool.getSeatSummarySchema.parse(args);
+        const result = await this.seatsTool.getSeatSummary(parsedArgs);
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result) }],
         };
-      }
+      },
     );
   }
 

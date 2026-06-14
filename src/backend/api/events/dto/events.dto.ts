@@ -23,12 +23,20 @@ export class CreateEventDto {
   @IsNotEmpty()
   eventDate: string;
 
-  @ApiProperty({ example: 1, required: false, description: 'Venue ID if using registered venue' })
+  @ApiProperty({
+    example: 1,
+    required: false,
+    description: 'Venue ID if using registered venue',
+  })
   @IsNumber()
   @IsOptional()
   venueId?: number;
 
-  @ApiProperty({ example: 'Central Park Amphitheater', required: false, description: 'Custom venue name if not using registered venue' })
+  @ApiProperty({
+    example: 'Central Park Amphitheater',
+    required: false,
+    description: 'Custom venue name if not using registered venue',
+  })
   @Trim()
   @IsString()
   @IsOptional()
@@ -44,7 +52,10 @@ export class CreateEventDto {
   @IsOptional()
   saleStartTime?: string;
 
-  @ApiProperty({ example: false, description: 'Whether the event is free (no payment required)' })
+  @ApiProperty({
+    example: false,
+    description: 'Whether the event is free (no payment required)',
+  })
   @IsOptional()
   isFree?: boolean;
 }
@@ -76,7 +87,11 @@ export class UpdateEventDto {
   @IsOptional()
   totalSeats?: number;
 
-  @ApiProperty({ enum: EventStatus, example: EventStatus.ON_SALE, required: false })
+  @ApiProperty({
+    enum: EventStatus,
+    example: EventStatus.ON_SALE,
+    required: false,
+  })
   @IsEnum(EventStatus)
   @IsOptional()
   status?: EventStatus;

@@ -13,6 +13,12 @@ import {
   ReservationResponseDto,
 } from './dto/create-reservation.dto.js';
 import { ReservationStatus, SeatStatus } from '../../common/enums/index.js';
+import {
+  RESERVATION_DEFAULTS,
+  RESERVATION_ENV_KEYS,
+  RESERVATION_LOCK_PREFIXES,
+  RESERVATION_MESSAGES,
+} from './reservation.constants.js';
 
 // interface LegacyReservationDto {
 //   eventId: number;
@@ -24,11 +30,13 @@ import { ReservationStatus, SeatStatus } from '../../common/enums/index.js';
 export class ReservationService {
   private readonly logger = new Logger(ReservationService.name);
   private readonly RESERVATION_TIMEOUT_MINUTES = parseInt(
-    process.env.RESERVATION_TIMEOUT_MINUTES || '10',
+    process.env[RESERVATION_ENV_KEYS.timeoutMinutes] ||
+      String(RESERVATION_DEFAULTS.timeoutMinutes),
     10,
   );
   private readonly LOCK_TTL_SECONDS = parseInt(
-    process.env.LOCK_TTL_SECONDS || '30',
+    process.env[RESERVATION_ENV_KEYS.lockTtlSeconds] ||
+      String(RESERVATION_DEFAULTS.lockTtlSeconds),
     10,
   );
 
@@ -53,32 +61,34 @@ export class ReservationService {
     });
 
     if (!event) {
-      throw new NotFoundException('Event not found');
+      throw new NotFoundException(RESERVATION_MESSAGES.eventNotFound);
     }
 
     const now = new Date();
 
     if (event.eventDate < now) {
-      throw new BadRequestException('Cannot purchase tickets for past events');
+      throw new BadRequestException(
+        RESERVATION_MESSAGES.cannotPurchasePastEvents,
+      );
     }
 
     if (event.saleStartTime && event.saleStartTime > now) {
       throw new BadRequestException(
-        `Ticket sales start on ${event.saleStartTime.toLocaleString()}`,
+        `${RESERVATION_MESSAGES.ticketSalesStartOn} ${event.saleStartTime.toLocaleString()}`,
       );
     }
 
     if (event.status !== 'ON_SALE' && event.status !== 'UPCOMING') {
       throw new BadRequestException(
-        `Tickets are not available. Event is ${event.status.toLowerCase()}`,
+        `${RESERVATION_MESSAGES.ticketsNotAvailable} ${event.status.toLowerCase()}`,
       );
     }
 
     if (event.availableSeats <= 0) {
-      throw new BadRequestException('Event is sold out');
+      throw new BadRequestException(RESERVATION_MESSAGES.eventSoldOut);
     }
 
-    const lockKey = `section:${sectionId}`;
+    const lockKey = `${RESERVATION_LOCK_PREFIXES.section}${sectionId}`;
     const expiresAt = new Date(
       Date.now() + this.RESERVATION_TIMEOUT_MINUTES * 60 * 1000,
     );
@@ -92,22 +102,22 @@ export class ReservationService {
         });
 
         if (!section) {
-          throw new NotFoundException('Section not found');
+          throw new NotFoundException(RESERVATION_MESSAGES.sectionNotFound);
         }
 
         if (section.eventId !== BigInt(eventId)) {
           throw new BadRequestException(
-            'Section does not belong to this event',
+            RESERVATION_MESSAGES.sectionEventMismatch,
           );
         }
 
         if (section.type !== 'GENERAL') {
-          throw new BadRequestException('Not a General Admission section');
+          throw new BadRequestException(RESERVATION_MESSAGES.notGaSection);
         }
 
         const available = section.totalCapacity - section.allocated;
         if (available < quantity) {
-          throw new ConflictException('Not enough tickets available');
+          throw new ConflictException(RESERVATION_MESSAGES.notEnoughTickets);
         }
 
         // 2. Increment Allocated
@@ -154,7 +164,9 @@ export class ReservationService {
         });
 
         if (createdReservations.length === 0) {
-          throw new Error('Failed to retrieve created reservations');
+          throw new Error(
+            RESERVATION_MESSAGES.failedToRetrieveCreatedReservations,
+          );
         }
 
         // Update event global availability
@@ -208,35 +220,37 @@ export class ReservationService {
     });
 
     if (!event) {
-      throw new NotFoundException('Event not found');
+      throw new NotFoundException(RESERVATION_MESSAGES.eventNotFound);
     }
 
     const now = new Date();
 
     if (event.eventDate < now) {
-      throw new BadRequestException('Cannot purchase tickets for past events');
+      throw new BadRequestException(
+        RESERVATION_MESSAGES.cannotPurchasePastEvents,
+      );
     }
 
     if (event.saleStartTime && event.saleStartTime > now) {
       throw new BadRequestException(
-        `Ticket sales start on ${event.saleStartTime.toLocaleString()}`,
+        `${RESERVATION_MESSAGES.ticketSalesStartOn} ${event.saleStartTime.toLocaleString()}`,
       );
     }
 
     if (event.status !== 'ON_SALE' && event.status !== 'UPCOMING') {
       throw new BadRequestException(
-        `Tickets are not available. Event is ${event.status.toLowerCase()}`,
+        `${RESERVATION_MESSAGES.ticketsNotAvailable} ${event.status.toLowerCase()}`,
       );
     }
 
     if (event.availableSeats <= 0) {
-      throw new BadRequestException('Event is sold out');
+      throw new BadRequestException(RESERVATION_MESSAGES.eventSoldOut);
     }
 
     // Existing Assigned Seating Logic
     const { seats, sessionId } = dto;
     if (!seats || seats.length === 0) {
-      throw new BadRequestException('No seats provided');
+      throw new BadRequestException(RESERVATION_MESSAGES.noSeatsProvided);
     }
 
     // Sort by seatId to prevent deadlocks
@@ -251,7 +265,7 @@ export class ReservationService {
 
     // Try to reserve each seat atomically
     for (const { seatId, version } of sortedSeats) {
-      const lockKey = `seat:reserve:${seatId}`;
+      const lockKey = `${RESERVATION_LOCK_PREFIXES.seatReserve}${seatId}`;
 
       try {
         // Acquire distributed lock for this specific seat
@@ -262,7 +276,7 @@ export class ReservationService {
         if (!lock) {
           failedSeats.push({
             seatId,
-            reason: 'Seat is currently locked by another request',
+            reason: RESERVATION_MESSAGES.seatLockInUse,
           });
           continue;
         }
@@ -273,11 +287,11 @@ export class ReservationService {
             where: {
               id: BigInt(seatId),
               eventId: BigInt(eventId),
-              status: 'AVAILABLE',
+              status: SeatStatus.AVAILABLE,
               version: BigInt(version), // Optimistic lock check
             },
             data: {
-              status: 'RESERVED',
+              status: SeatStatus.RESERVED,
               reservedBy: userId,
               reservedUntil: expiresAt,
               version: { increment: 1 }, // Increment version
@@ -291,8 +305,11 @@ export class ReservationService {
             });
 
             if (!seat) {
-              failedSeats.push({ seatId, reason: 'Seat not found' });
-            } else if (seat.status !== 'AVAILABLE') {
+              failedSeats.push({
+                seatId,
+                reason: RESERVATION_MESSAGES.seatNotFound,
+              });
+            } else if (seat.status !== SeatStatus.AVAILABLE) {
               failedSeats.push({
                 seatId,
                 reason: `Seat is ${seat.status.toLowerCase()}`,
@@ -300,10 +317,13 @@ export class ReservationService {
             } else if (Number(seat.version) !== version) {
               failedSeats.push({
                 seatId,
-                reason: 'Seat was modified by another user (stale version)',
+                reason: RESERVATION_MESSAGES.staleSeatVersion,
               });
             } else {
-              failedSeats.push({ seatId, reason: 'Unable to reserve seat' });
+              failedSeats.push({
+                seatId,
+                reason: RESERVATION_MESSAGES.unableToReserveSeat,
+              });
             }
           } else {
             // Success - create reservation record
@@ -314,7 +334,7 @@ export class ReservationService {
                 userId,
                 sessionId: sessionId || null,
                 expiresAt,
-                status: 'ACTIVE',
+                status: ReservationStatus.ACTIVE,
               },
             });
 
@@ -341,7 +361,7 @@ export class ReservationService {
 
     if (reservedSeatIds.length === 0) {
       throw new ConflictException({
-        message: 'No seats could be reserved',
+        message: RESERVATION_MESSAGES.noSeatsReserved,
         failedSeats,
       });
     }
@@ -372,7 +392,7 @@ export class ReservationService {
     });
 
     if (reservations.length === 0) {
-      throw new Error('Failed to retrieve created reservations');
+      throw new Error(RESERVATION_MESSAGES.failedToRetrieveCreatedReservations);
     }
 
     const expiresInSeconds = Math.floor(
@@ -404,18 +424,18 @@ export class ReservationService {
     });
 
     if (!reservation) {
-      throw new NotFoundException('Reservation not found');
+      throw new NotFoundException(RESERVATION_MESSAGES.reservationNotFound);
     }
 
     if (reservation.userId !== userId) {
       throw new BadRequestException(
-        'You can only cancel your own reservations',
+        RESERVATION_MESSAGES.cancelOwnReservationOnly,
       );
     }
 
     if (reservation.status !== ReservationStatus.ACTIVE) {
       throw new BadRequestException(
-        `Cannot cancel reservation with status: ${reservation.status}`,
+        `${RESERVATION_MESSAGES.cannotCancelWithStatus} ${reservation.status}`,
       );
     }
 
@@ -445,7 +465,7 @@ export class ReservationService {
 
     // Handle Assigned Seat Cancellation
     if (reservation.seat) {
-      const lockKey = `seat:${reservation.eventId}:${reservation.seat.seatNumber}`;
+      const lockKey = `${RESERVATION_LOCK_PREFIXES.seat}${reservation.eventId}:${reservation.seat.seatNumber}`;
 
       await this.lockingService.withLock(lockKey, async () => {
         // Update seat status back to AVAILABLE
@@ -494,7 +514,7 @@ export class ReservationService {
         include: {
           seat: true,
         },
-        take: 100, // Process in batches
+        take: RESERVATION_DEFAULTS.cleanupBatchSize,
       });
 
       if (expiredReservations.length === 0) {
@@ -502,7 +522,7 @@ export class ReservationService {
       }
 
       this.logger.log(
-        `Found ${expiredReservations.length} expired reservations to cleanup`,
+        `${RESERVATION_MESSAGES.foundExpiredReservations} ${expiredReservations.length}`,
       );
 
       for (const reservation of expiredReservations) {
@@ -533,11 +553,11 @@ export class ReservationService {
 
           // Handle Assigned Seat Expiry
           if (reservation.seatId) {
-            const lockKey = `seat:${reservation.eventId}:${reservation.seat!.seatNumber}`;
+            const lockKey = `${RESERVATION_LOCK_PREFIXES.seat}${reservation.eventId}:${reservation.seat!.seatNumber}`;
 
             // Try to acquire lock (may fail if someone is booking it)
             const lock = await this.lockingService.acquireLock(lockKey, {
-              ttlSeconds: 5,
+              ttlSeconds: RESERVATION_DEFAULTS.cleanupSeatLockTtlSeconds,
               retries: 0,
             });
 
@@ -596,10 +616,10 @@ export class ReservationService {
         }
       }
 
-      this.logger.log(`Cleanup completed`);
+      this.logger.log(RESERVATION_MESSAGES.cleanupCompleted);
     } catch (error) {
       this.logger.error(
-        `Cleanup job failed: ${error instanceof Error ? error.message : String(error)}`,
+        `${RESERVATION_MESSAGES.cleanupJobFailed} ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
     }

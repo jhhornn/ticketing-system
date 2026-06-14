@@ -5,8 +5,12 @@ import { EmailStrategy } from './email-strategy.interface.js';
 export class SmtpEmailStrategy implements EmailStrategy {
   private readonly logger = new Logger(SmtpEmailStrategy.name);
 
-  async sendEmail(to: string, subject: string, body: string): Promise<void> {
+  sendEmail(to: string, subject: string, body: string): Promise<void> {
     // Implementation for SMTP (e.g., using nodemailer) would go here
-    this.logger.warn(`[SMTP] Sending email to ${to} with subject "${subject}" (Not Implemented)`);
+    this.logger.warn(
+      `[SMTP] Sending email to ${to} with subject "${subject}" (body length: ${body.length}, Not Implemented)`,
+    );
+
+    return Promise.resolve();
   }
 }

@@ -7,36 +7,37 @@ export class StatsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getUserStats(userId: string) {
-    const [totalEvents, activeEvents, totalBookings, revenueData] = await Promise.all([
-      // Total events count for this user
-      this.prisma.event.count({
-        where: { createdBy: userId },
-      }),
-      // Active events count for this user
-      this.prisma.event.count({
-        where: {
-          createdBy: userId,
-          status: { not: EventStatus.CANCELLED },
-        },
-      }),
-      // Total confirmed bookings for user's events
-      this.prisma.booking.count({
-        where: {
-          event: { createdBy: userId },
-          status: BookingStatus.CONFIRMED,
-        },
-      }),
-      // Total revenue from user's events
-      this.prisma.booking.aggregate({
-        where: {
-          event: { createdBy: userId },
-          status: BookingStatus.CONFIRMED,
-        },
-        _sum: {
-          totalAmount: true,
-        },
-      }),
-    ]);
+    const [totalEvents, activeEvents, totalBookings, revenueData] =
+      await Promise.all([
+        // Total events count for this user
+        this.prisma.event.count({
+          where: { createdBy: userId },
+        }),
+        // Active events count for this user
+        this.prisma.event.count({
+          where: {
+            createdBy: userId,
+            status: { not: EventStatus.CANCELLED },
+          },
+        }),
+        // Total confirmed bookings for user's events
+        this.prisma.booking.count({
+          where: {
+            event: { createdBy: userId },
+            status: BookingStatus.CONFIRMED,
+          },
+        }),
+        // Total revenue from user's events
+        this.prisma.booking.aggregate({
+          where: {
+            event: { createdBy: userId },
+            status: BookingStatus.CONFIRMED,
+          },
+          _sum: {
+            totalAmount: true,
+          },
+        }),
+      ]);
 
     return {
       totalEvents,

@@ -11,9 +11,7 @@ export function ApiStandardResponse<T>(
   description: string,
   type?: Type<T>,
 ) {
-  const decorators = [
-    ApiExtraModels(ApiResponseDto),
-  ];
+  const decorators = [ApiExtraModels(ApiResponseDto)];
 
   if (type) {
     decorators.push(ApiExtraModels(type));
@@ -118,7 +116,9 @@ export function ApiErrorResponses() {
 /**
  * Decorator for conflict response (409)
  */
-export function ApiConflictResponse(description: string = 'Conflict - Resource already exists or operation conflicts with current state') {
+export function ApiConflictResponse(
+  description: string = 'Conflict - Resource already exists or operation conflicts with current state',
+) {
   return applyDecorators(
     ApiExtraModels(ErrorResponseDto),
     ApiResponse({
@@ -142,7 +142,9 @@ export function ApiConflictResponse(description: string = 'Conflict - Resource a
 /**
  * Decorator for unauthorized response (401)
  */
-export function ApiUnauthorizedResponse(description: string = 'Unauthorized - Authentication required') {
+export function ApiUnauthorizedResponse(
+  description: string = 'Unauthorized - Authentication required',
+) {
   return applyDecorators(
     ApiExtraModels(ErrorResponseDto),
     ApiResponse({
@@ -156,7 +158,9 @@ export function ApiUnauthorizedResponse(description: string = 'Unauthorized - Au
 /**
  * Decorator for forbidden response (403)
  */
-export function ApiForbiddenResponse(description: string = 'Forbidden - Insufficient permissions') {
+export function ApiForbiddenResponse(
+  description: string = 'Forbidden - Insufficient permissions',
+) {
   return applyDecorators(
     ApiExtraModels(ErrorResponseDto),
     ApiResponse({

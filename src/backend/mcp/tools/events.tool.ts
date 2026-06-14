@@ -17,9 +17,12 @@ export class EventsTool {
   });
 
   async listEvents(args: z.infer<typeof EventsTool.listEventsSchema>) {
-    const events = await this.eventsService.findAll(args.userId, args.onlyOwned);
-    
-    return events.slice(0, args.limit).map(e => ({
+    const events = await this.eventsService.findAll(
+      args.userId,
+      args.onlyOwned,
+    );
+
+    return events.slice(0, args.limit).map((e) => ({
       id: e.id.toString(),
       name: e.eventName,
       date: e.eventDate,
@@ -29,9 +32,11 @@ export class EventsTool {
     }));
   }
 
-  async getEventDetails(args: z.infer<typeof EventsTool.getEventDetailsSchema>) {
+  async getEventDetails(
+    args: z.infer<typeof EventsTool.getEventDetailsSchema>,
+  ) {
     const event = await this.eventsService.findOne(Number(args.eventId));
-    
+
     return {
       id: event.id.toString(),
       name: event.eventName,

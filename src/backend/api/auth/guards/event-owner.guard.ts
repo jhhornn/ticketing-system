@@ -6,33 +6,26 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { Role } from '@prisma/client';
 import { PrismaService } from '../../../common/database/prisma.service.js';
-
-interface RequestUser {
-  id: string;
-  role: string;
-}
+import { AUTH_GUARD_MESSAGES } from '../auth.constants.js';
+import { AuthenticatedRequest, getRequiredUser } from './auth-request.types.js';
 
 @Injectable()
 export class EventOwnerGuard implements CanActivate {
   constructor(private prisma: PrismaService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<Request>();
-    const user = request.user as RequestUser;
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const user = getRequiredUser(request);
     const eventId = request.params.id as string;
 
-    if (!user) {
-      throw new ForbiddenException('User not authenticated');
-    }
-
     if (!eventId) {
-      throw new ForbiddenException('Event ID not provided');
+      throw new ForbiddenException(AUTH_GUARD_MESSAGES.eventIdNotProvided);
     }
 
     // Admin users can manage all events
-    if (user.role === 'ADMIN') {
+    if (user.role === Role.ADMIN) {
       return true;
     }
 
@@ -51,7 +44,7 @@ export class EventOwnerGuard implements CanActivate {
 
     if (event.createdBy !== user.id) {
       throw new ForbiddenException(
-        'You do not have permission to manage this event',
+        AUTH_GUARD_MESSAGES.noPermissionToManageEvent,
       );
     }
 

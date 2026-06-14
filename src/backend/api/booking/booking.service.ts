@@ -19,6 +19,11 @@ import {
   SeatStatus,
 } from '../../common/enums/index.js';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  BOOKING_IDEMPOTENCY_TTL_HOURS,
+  BOOKING_MESSAGES,
+  BOOKING_REFERENCE_PREFIX,
+} from './booking.constants.js';
 
 @Injectable()
 export class BookingService {
@@ -77,12 +82,14 @@ export class BookingService {
         this.logger.warn(
           `Reservation not found: ID=${reservationId}, UserId=${userId}`,
         );
-        throw new NotFoundException('Reservation not found or already used');
+        throw new NotFoundException(BOOKING_MESSAGES.reservationNotFound);
       }
 
       // Check if reservation is already used
       if (reservation.status === ReservationStatus.CONFIRMED) {
-        throw new BadRequestException('Reservation has already been confirmed');
+        throw new BadRequestException(
+          BOOKING_MESSAGES.reservationAlreadyConfirmed,
+        );
       }
 
       // Check if reservation is active
@@ -94,9 +101,7 @@ export class BookingService {
 
       // Check if reservation is expired
       if (reservation.expiresAt < new Date()) {
-        throw new BadRequestException(
-          'Reservation has expired. Please reserve seats again.',
-        );
+        throw new BadRequestException(BOOKING_MESSAGES.reservationExpired);
       }
 
       // Find all reservations in the same session (for multi-seat bookings)
@@ -123,7 +128,9 @@ export class BookingService {
       // Lock assigned seats
       assignedReservations.forEach((r) => {
         if (r.seat) {
-          lockResources.push(`seat:${r.eventId}:${r.seat.seatNumber}`);
+          lockResources.push(
+            this.toSeatLockResource(r.eventId, r.seat.seatNumber),
+          );
         }
       });
 
@@ -203,7 +210,7 @@ export class BookingService {
             } else {
               this.logger.warn(`Invalid discount code: ${validation.reason}`);
               throw new BadRequestException(
-                validation.reason || 'Invalid discount code',
+                validation.reason || BOOKING_MESSAGES.invalidDiscountCode,
               );
             }
           }
@@ -223,7 +230,7 @@ export class BookingService {
                 discountCode: appliedDiscountCode,
                 discountAmount,
               },
-              idempotencyKey: `payment_${idempotencyKey}`,
+              idempotencyKey: this.toPaymentIdempotencyKey(idempotencyKey),
             };
 
             const paymentResponse = await this.paymentService.processPayment(
@@ -439,7 +446,7 @@ export class BookingService {
     });
 
     if (!booking) {
-      throw new NotFoundException('Booking not found');
+      throw new NotFoundException(BOOKING_MESSAGES.bookingNotFound);
     }
 
     const seatNumbers = booking.bookingSeats.map(
@@ -522,7 +529,7 @@ export class BookingService {
     statusCode: number,
   ): Promise<void> {
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiry
+    expiresAt.setHours(expiresAt.getHours() + BOOKING_IDEMPOTENCY_TTL_HOURS);
 
     await this.prisma.idempotencyKey.create({
       data: {
@@ -541,7 +548,7 @@ export class BookingService {
   private generateBookingReference(): string {
     const timestamp = Date.now().toString(36).toUpperCase();
     const random = uuidv4().split('-')[0].toUpperCase();
-    return `BK-${timestamp}-${random}`;
+    return `${BOOKING_REFERENCE_PREFIX}-${timestamp}-${random}`;
   }
 
   /**
@@ -591,13 +598,11 @@ export class BookingService {
     });
 
     if (!event) {
-      throw new NotFoundException('Event not found');
+      throw new NotFoundException(BOOKING_MESSAGES.eventNotFound);
     }
 
     if (event.createdBy !== userId) {
-      throw new ForbiddenException(
-        'You do not have permission to view bookings for this event',
-      );
+      throw new ForbiddenException(BOOKING_MESSAGES.eventBookingsForbidden);
     }
 
     // Fetch all bookings for this event with user and seat details
@@ -628,15 +633,7 @@ export class BookingService {
 
     // Map to response DTOs with enhanced information
     return bookings.map((booking) => {
-      const seatNumbers: string[] = [];
-
-      booking.bookingSeats.forEach((bs) => {
-        if (bs.seat) {
-          seatNumbers.push(bs.seat.seatNumber);
-        } else if (bs.eventSection) {
-          seatNumbers.push(`${bs.eventSection.name} (GA x${bs.quantity})`);
-        }
-      });
+      const seatNumbers = this.toSeatLabels(booking.bookingSeats);
 
       return {
         bookingId: booking.id.toString(),
@@ -644,9 +641,10 @@ export class BookingService {
         eventId: Number(booking.eventId),
         userId: booking.userId,
         userEmail: booking.user.email,
-        userName:
-          `${booking.user.firstName || ''} ${booking.user.lastName || ''}`.trim() ||
-          'N/A',
+        userName: this.toDisplayName(
+          booking.user.firstName,
+          booking.user.lastName,
+        ),
         totalAmount: Number(booking.totalAmount),
         status: booking.status,
         paymentStatus: booking.paymentStatus,
@@ -656,5 +654,46 @@ export class BookingService {
         confirmedAt: booking.confirmedAt ?? undefined,
       };
     });
+  }
+
+  private toSeatLabels(
+    bookingSeats: Array<{
+      quantity: number;
+      seat: { seatNumber: string } | null;
+      eventSection: { name: string } | null;
+    }>,
+  ): string[] {
+    const seatNumbers: string[] = [];
+
+    bookingSeats.forEach((bookingSeat) => {
+      if (bookingSeat.seat) {
+        seatNumbers.push(bookingSeat.seat.seatNumber);
+        return;
+      }
+
+      if (bookingSeat.eventSection) {
+        seatNumbers.push(
+          `${bookingSeat.eventSection.name} (GA x${bookingSeat.quantity})`,
+        );
+      }
+    });
+
+    return seatNumbers;
+  }
+
+  private toDisplayName(
+    firstName: string | null,
+    lastName: string | null,
+  ): string {
+    const fullName = `${firstName || ''} ${lastName || ''}`.trim();
+    return fullName || 'N/A';
+  }
+
+  private toSeatLockResource(eventId: bigint, seatNumber: string): string {
+    return `seat:${eventId}:${seatNumber}`;
+  }
+
+  private toPaymentIdempotencyKey(idempotencyKey: string): string {
+    return `payment_${idempotencyKey}`;
   }
 }

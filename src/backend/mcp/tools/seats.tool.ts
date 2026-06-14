@@ -14,7 +14,9 @@ export class SeatsTool {
     eventId: z.number().min(1),
   });
 
-  async listAvailableSeats(args: z.infer<typeof SeatsTool.listAvailableSeatsSchema>) {
+  async listAvailableSeats(
+    args: z.infer<typeof SeatsTool.listAvailableSeatsSchema>,
+  ) {
     return this.seatsService.getSeatMap(args.eventId);
   }
 

@@ -1,16 +1,12 @@
 // src/backend/api/audit/audit-log.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/database/prisma.service.js';
+import type { IAuditLogEntry } from '../interfaces/index.js';
+import { AuditAction, AuditEntityType } from '../interfaces/index.js';
 
-export interface AuditLogEntry {
-  entityType: string;
-  entityId: number;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'RESERVE' | 'BOOK' | 'CANCEL';
-  changes?: any;
-  performedBy: string;
-  metadata?: any;
-  ipAddress?: string;
-}
+// Re-export for convenience
+export type { IAuditLogEntry };
+export { AuditAction, AuditEntityType };
 
 @Injectable()
 export class AuditLogService {
@@ -19,7 +15,7 @@ export class AuditLogService {
   /**
    * Log an audit event for tracking all critical operations
    */
-  async log(entry: AuditLogEntry): Promise<void> {
+  async log(entry: IAuditLogEntry): Promise<void> {
     try {
       await this.prisma.auditLog.create({
         data: {

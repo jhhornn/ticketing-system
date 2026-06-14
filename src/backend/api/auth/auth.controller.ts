@@ -17,6 +17,10 @@ import {
 } from '../../common/decorators/api-response.decorator.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { CurrentUser } from './decorators/current-user.decorator.js';
+import {
+  AUTH_ERROR_MESSAGES,
+  AUTH_SWAGGER_MESSAGES,
+} from './auth.constants.js';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -27,10 +31,10 @@ export class AuthController {
   @ApiOperation({ summary: 'Register a new user' })
   @ApiStandardResponse(
     HttpStatus.CREATED,
-    'User registered successfully',
+    AUTH_SWAGGER_MESSAGES.registerSuccess,
     AuthResponseDto,
   )
-  @ApiConflictResponse('User with this email already exists')
+  @ApiConflictResponse(AUTH_ERROR_MESSAGES.userAlreadyExists)
   async register(@Body() dto: RegisterDto): Promise<AuthResponseDto> {
     return this.authService.register(dto);
   }
@@ -40,10 +44,10 @@ export class AuthController {
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiStandardResponse(
     HttpStatus.OK,
-    'User logged in successfully',
+    AUTH_SWAGGER_MESSAGES.loginSuccess,
     AuthResponseDto,
   )
-  @ApiUnauthorizedResponse('Invalid credentials')
+  @ApiUnauthorizedResponse(AUTH_ERROR_MESSAGES.invalidCredentials)
   async login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
     return this.authService.login(dto);
   }
@@ -54,10 +58,10 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiStandardResponse(
     HttpStatus.OK,
-    'Profile retrieved successfully',
+    AUTH_SWAGGER_MESSAGES.profileSuccess,
     AuthResponseDto,
   )
-  @ApiUnauthorizedResponse('Unauthorized')
+  @ApiUnauthorizedResponse(AUTH_SWAGGER_MESSAGES.unauthorized)
   getProfile(
     @CurrentUser()
     user: {
@@ -68,6 +72,16 @@ export class AuthController {
       lastName: string;
     },
   ) {
+    return this.toProfileResponse(user);
+  }
+
+  private toProfileResponse(user: {
+    id: string;
+    email: string;
+    role: string;
+    firstName: string;
+    lastName: string;
+  }) {
     return {
       id: user.id,
       email: user.email,

@@ -1,5 +1,6 @@
 // src/backend/api/advertisements/advertisements.service.ts
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { Advertisement, Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service.js';
 import {
   CreateAdvertisementDto,
@@ -35,8 +36,8 @@ export class AdvertisementsService {
   }
 
   async findAll(placement?: AdPlacement): Promise<AdvertisementResponseDto[]> {
-    const where: any = {};
-    
+    const where: Prisma.AdvertisementWhereInput = {};
+
     if (placement) {
       where.placement = {
         has: placement,
@@ -45,26 +46,24 @@ export class AdvertisementsService {
 
     const advertisements = await this.prisma.advertisement.findMany({
       where,
-      orderBy: [
-        { priority: 'desc' },
-        { createdAt: 'desc' },
-      ],
+      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
     });
 
-    return advertisements.map(this.mapToResponse);
+    return advertisements.map((advertisement) =>
+      this.mapToResponse(advertisement),
+    );
   }
 
-  async findActive(placement?: AdPlacement): Promise<AdvertisementResponseDto[]> {
+  async findActive(
+    placement?: AdPlacement,
+  ): Promise<AdvertisementResponseDto[]> {
     const now = new Date();
-    const where: any = {
+    const where: Prisma.AdvertisementWhereInput = {
       status: AdStatus.ACTIVE,
       startDate: {
         lte: now,
       },
-      OR: [
-        { endDate: null },
-        { endDate: { gte: now } },
-      ],
+      OR: [{ endDate: null }, { endDate: { gte: now } }],
     };
 
     if (placement) {
@@ -75,14 +74,13 @@ export class AdvertisementsService {
 
     const advertisements = await this.prisma.advertisement.findMany({
       where,
-      orderBy: [
-        { priority: 'desc' },
-        { createdAt: 'desc' },
-      ],
+      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
       take: 10, // Limit active ads
     });
 
-    return advertisements.map(this.mapToResponse);
+    return advertisements.map((advertisement) =>
+      this.mapToResponse(advertisement),
+    );
   }
 
   async findOne(id: string): Promise<AdvertisementResponseDto> {
@@ -100,7 +98,6 @@ export class AdvertisementsService {
   async update(
     id: string,
     dto: UpdateAdvertisementDto,
-    userId: string,
   ): Promise<AdvertisementResponseDto> {
     const existing = await this.prisma.advertisement.findUnique({
       where: { id: BigInt(id) },
@@ -110,8 +107,8 @@ export class AdvertisementsService {
       throw new NotFoundException(`Advertisement with ID ${id} not found`);
     }
 
-    const updateData: any = {};
-    
+    const updateData: Prisma.AdvertisementUpdateInput = {};
+
     if (dto.title !== undefined) updateData.title = dto.title;
     if (dto.description !== undefined) updateData.description = dto.description;
     if (dto.imageUrl !== undefined) updateData.imageUrl = dto.imageUrl;
@@ -119,8 +116,10 @@ export class AdvertisementsService {
     if (dto.status !== undefined) updateData.status = dto.status;
     if (dto.placement !== undefined) updateData.placement = dto.placement;
     if (dto.priority !== undefined) updateData.priority = dto.priority;
-    if (dto.startDate !== undefined) updateData.startDate = new Date(dto.startDate);
-    if (dto.endDate !== undefined) updateData.endDate = dto.endDate ? new Date(dto.endDate) : null;
+    if (dto.startDate !== undefined)
+      updateData.startDate = new Date(dto.startDate);
+    if (dto.endDate !== undefined)
+      updateData.endDate = dto.endDate ? new Date(dto.endDate) : null;
 
     const advertisement = await this.prisma.advertisement.update({
       where: { id: BigInt(id) },
@@ -130,7 +129,7 @@ export class AdvertisementsService {
     return this.mapToResponse(advertisement);
   }
 
-  async remove(id: string, userId: string): Promise<void> {
+  async remove(id: string): Promise<void> {
     const existing = await this.prisma.advertisement.findUnique({
       where: { id: BigInt(id) },
     });
@@ -166,11 +165,11 @@ export class AdvertisementsService {
     });
   }
 
-  private mapToResponse(ad: any): AdvertisementResponseDto {
+  private mapToResponse(ad: Advertisement): AdvertisementResponseDto {
     return {
       id: ad.id.toString(),
       title: ad.title,
-      description: ad.description,
+      description: ad.description ?? undefined,
       imageUrl: ad.imageUrl,
       targetUrl: ad.targetUrl,
       status: ad.status,
@@ -179,7 +178,7 @@ export class AdvertisementsService {
       impressions: ad.impressions,
       clicks: ad.clicks,
       startDate: ad.startDate,
-      endDate: ad.endDate,
+      endDate: ad.endDate ?? undefined,
       createdBy: ad.createdBy,
       createdAt: ad.createdAt,
       updatedAt: ad.updatedAt,

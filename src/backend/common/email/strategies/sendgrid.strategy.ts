@@ -10,7 +10,7 @@ export class SendGridEmailStrategy implements EmailStrategy {
     // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
   }
 
-  async sendEmail(to: string, subject: string, body: string): Promise<void> {
+  sendEmail(to: string, subject: string, body: string): Promise<void> {
     // const msg = {
     //   to,
     //   from: process.env.SENDGRID_FROM_EMAIL,
@@ -19,6 +19,10 @@ export class SendGridEmailStrategy implements EmailStrategy {
     //   html: body,
     // };
     // await sgMail.send(msg);
-    this.logger.log(`[SendGrid] Sending email to ${to} with subject "${subject}" (Simulated - Install @sendgrid/mail to enable)`);
+    this.logger.log(
+      `[SendGrid] Sending email to ${to} with subject "${subject}" (body length: ${body.length}, Simulated - Install @sendgrid/mail to enable)`,
+    );
+
+    return Promise.resolve();
   }
 }

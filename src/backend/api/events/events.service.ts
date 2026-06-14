@@ -13,7 +13,16 @@ import {
   UpdateEventDto,
   EventResponseDto,
 } from './dto/events.dto.js';
-import { EventStatus } from '../../common/enums/index.js';
+import {
+  EventStatus,
+  AuditEntityType,
+  AuditAction,
+  SeatStatus,
+  BookingStatus,
+} from '../../common/enums/index.js';
+
+// Define confirmed booking statuses
+const CONFIRMED_BOOKING_STATUSES = [BookingStatus.CONFIRMED];
 import { Event } from '@prisma/client';
 
 @Injectable()
@@ -33,20 +42,27 @@ export class EventsService implements OnModuleInit {
 
   /**
    * Create an event - any authenticated user can create events
-   * Venue capacity is auto-populated if using a registered venue
+   * Venue sections are auto-inherited only when using full venue capacity
    */
   async create(dto: CreateEventDto, userId: string): Promise<EventResponseDto> {
-    let totalSeats = dto.totalSeats;
+    const totalSeats = dto.totalSeats;
 
-    // If venueId provided, fetch venue and use its capacity
+    // If venueId provided, fetch venue and validate capacity
     if (dto.venueId) {
       const venue = await this.prisma.venue.findUnique({
         where: { id: BigInt(dto.venueId) },
         include: { venueSections: true },
       });
 
-      if (venue) {
-        totalSeats = venue.capacity;
+      if (!venue) {
+        throw new BadRequestException(`Venue with ID ${dto.venueId} not found`);
+      }
+
+      // Validate that totalSeats doesn't exceed venue capacity
+      if (totalSeats > venue.capacity) {
+        throw new BadRequestException(
+          `Event capacity (${totalSeats}) cannot exceed venue capacity (${venue.capacity})`,
+        );
       }
 
       // Create the event
@@ -68,8 +84,13 @@ export class EventsService implements OnModuleInit {
         },
       });
 
-      // Copy venue sections to event sections if venue has sections
-      if (venue?.venueSections && venue.venueSections.length > 0) {
+      // Only copy venue sections if using full venue capacity
+      // If using partial capacity, user should manually add sections
+      if (
+        totalSeats === venue.capacity &&
+        venue.venueSections &&
+        venue.venueSections.length > 0
+      ) {
         console.log(
           `[EventsService] Copying ${venue.venueSections.length} sections from venue ${venue.name} to event ${event.eventName}`,
         );
@@ -102,6 +123,10 @@ export class EventsService implements OnModuleInit {
             );
           }
         }
+      } else if (totalSeats < venue.capacity) {
+        console.log(
+          `[EventsService] Event ${event.eventName} uses partial venue capacity (${totalSeats}/${venue.capacity}). Sections not auto-created.`,
+        );
       }
 
       return this.mapToDto(event);
@@ -151,7 +176,7 @@ export class EventsService implements OnModuleInit {
           rowNumber: row,
           seatType: 'REGULAR' as const,
           price,
-          status: 'AVAILABLE' as const,
+          status: SeatStatus.AVAILABLE,
           version: 0,
         });
       }
@@ -159,6 +184,7 @@ export class EventsService implements OnModuleInit {
 
     await this.prisma.seat.createMany({
       data: seatsData,
+      skipDuplicates: true,
     });
   }
 
@@ -287,7 +313,7 @@ export class EventsService implements OnModuleInit {
       where: { id: BigInt(id) },
       include: {
         bookings: {
-          where: { status: { in: ['CONFIRMED', 'PENDING'] } },
+          where: { status: { in: CONFIRMED_BOOKING_STATUSES } },
         },
         eventSections: true,
       },
@@ -348,9 +374,9 @@ export class EventsService implements OnModuleInit {
 
     // Audit log the changes
     await this.auditLog.log({
-      entityType: 'Event',
+      entityType: AuditEntityType.EVENT,
       entityId: id,
-      action: 'UPDATE',
+      action: AuditAction.UPDATE,
       changes: dto,
       performedBy: userId || 'system',
       metadata: {
@@ -476,7 +502,7 @@ export class EventsService implements OnModuleInit {
       } else {
         // For Assigned, count seats with status AVAILABLE
         availableCount = section.seats.filter(
-          (s) => s.status === 'AVAILABLE',
+          (s) => s.status === SeatStatus.AVAILABLE,
         ).length;
       }
 

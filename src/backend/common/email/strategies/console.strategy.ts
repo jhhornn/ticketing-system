@@ -5,7 +5,7 @@ import { EmailStrategy } from './email-strategy.interface.js';
 export class ConsoleEmailStrategy implements EmailStrategy {
   private readonly logger = new Logger(ConsoleEmailStrategy.name);
 
-  async sendEmail(to: string, subject: string, body: string): Promise<void> {
+  sendEmail(to: string, subject: string, body: string): Promise<void> {
     this.logger.log(`
       --- EMAIL SIMULATION ---
       To: ${to}
@@ -13,5 +13,7 @@ export class ConsoleEmailStrategy implements EmailStrategy {
       Body: ${body}
       ------------------------
     `);
+
+    return Promise.resolve();
   }
 }

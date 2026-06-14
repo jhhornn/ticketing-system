@@ -5,8 +5,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/database/prisma.service.js';
-import { AuditLogService } from '../../common/audit/audit-log.service.js';
-import { SectionType } from '@prisma/client';
+import {
+  AuditLogService,
+  AuditAction,
+  AuditEntityType,
+} from '../../common/audit/audit-log.service.js';
+import {
+  CONFIRMED_BOOKING_STATUSES,
+  SectionType,
+} from '../../common/enums/index.js';
 import {
   CreateSectionDto,
   UpdateSectionDto,
@@ -22,6 +29,7 @@ export class SectionsService {
 
   async create(
     createSectionDto: CreateSectionDto,
+    userId: string,
   ): Promise<SectionResponseDto> {
     const { eventId, generateSeats, rows, seatsPerRow, ...sectionData } =
       createSectionDto;
@@ -86,11 +94,11 @@ export class SectionsService {
 
     // Audit log the creation
     await this.auditLog.log({
-      entityType: 'EventSection',
+      entityType: AuditEntityType.EVENT_SECTION,
       entityId: Number(section.id),
-      action: 'CREATE',
+      action: AuditAction.CREATE,
       changes: { ...sectionData, eventId },
-      performedBy: 'system', // TODO: Get from request context
+      performedBy: userId,
     });
 
     return this.mapToResponse(section);
@@ -157,6 +165,7 @@ export class SectionsService {
   async update(
     id: number,
     updateSectionDto: UpdateSectionDto,
+    userId: string,
   ): Promise<SectionResponseDto> {
     const section = await this.prisma.eventSection.findUnique({
       where: { id },
@@ -195,11 +204,11 @@ export class SectionsService {
 
     // Audit log the update
     await this.auditLog.log({
-      entityType: 'EventSection',
+      entityType: AuditEntityType.EVENT_SECTION,
       entityId: id,
-      action: 'UPDATE',
+      action: AuditAction.UPDATE,
       changes: updateSectionDto,
-      performedBy: 'system', // TODO: Get from request context
+      performedBy: userId,
       metadata: {
         oldValues: {
           name: section.name,
@@ -212,7 +221,7 @@ export class SectionsService {
     return this.mapToResponse(updated);
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: number, userId: string): Promise<void> {
     const section = await this.prisma.eventSection.findUnique({
       where: { id },
     });
@@ -225,7 +234,7 @@ export class SectionsService {
     const bookingCount = await this.prisma.booking.count({
       where: {
         eventId: section.eventId,
-        status: { in: ['CONFIRMED', 'PENDING'] },
+        status: { in: CONFIRMED_BOOKING_STATUSES },
       },
     });
 
@@ -263,10 +272,10 @@ export class SectionsService {
 
     // Audit log the deletion
     await this.auditLog.log({
-      entityType: 'EventSection',
+      entityType: AuditEntityType.EVENT_SECTION,
       entityId: id,
-      action: 'DELETE',
-      performedBy: 'system', // TODO: Get from request context
+      action: AuditAction.DELETE,
+      performedBy: userId,
       metadata: {
         deletedSection: {
           name: section.name,
@@ -306,7 +315,7 @@ export class SectionsService {
           rowNumber: row,
           seatType: 'REGULAR' as const,
           price,
-          status: 'AVAILABLE' as const,
+          status: 'AVAILABLE' as const, // SeatStatus.AVAILABLE
           version: 0,
         });
       }
@@ -314,6 +323,7 @@ export class SectionsService {
 
     await this.prisma.seat.createMany({
       data: seatsData,
+      skipDuplicates: true,
     });
   }
 

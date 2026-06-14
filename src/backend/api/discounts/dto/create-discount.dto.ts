@@ -47,7 +47,11 @@ export class CreateDiscountDto {
   @IsOptional()
   minOrderAmount?: number;
 
-  @ApiProperty({ example: 1, required: false, description: 'ID of the event this discount applies to' })
+  @ApiProperty({
+    example: 1,
+    required: false,
+    description: 'ID of the event this discount applies to',
+  })
   @IsNumber()
   @IsOptional()
   eventId?: number;

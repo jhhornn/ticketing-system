@@ -28,13 +28,11 @@ Production-ready distributed ticketing system with Redis-based locking and payme
     .addBearerAuth()
     .build();
 
-  // @ts-ignore - pnpm peer dependency type conflict
   const document = SwaggerModule.createDocument(app, config);
 
   // Serve Scalar API Reference
   app.use(
     '/api',
-    // @ts-ignore - pnpm peer dependency type conflict
     apiReference({
       content: document,
       theme: 'purple',

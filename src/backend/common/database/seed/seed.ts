@@ -1,5 +1,12 @@
 // src/backend/common/database/seed/seed.ts
-import { PrismaClient, Role, EventStatus, SectionType, SeatStatus, SeatType } from '@prisma/client';
+import {
+  PrismaClient,
+  Role,
+  EventStatus,
+  SectionType,
+  SeatStatus,
+  SeatType,
+} from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
@@ -49,7 +56,7 @@ async function main() {
   });
   console.log('✅ Event Organizer user created/verified');
 
-  const customer = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email: 'customer@example.com' },
     update: {},
     create: {
@@ -92,7 +99,7 @@ async function main() {
   console.log('✅ Convention Center venue created/verified');
 
   // Create venue sections (templates for registered venues)
-  const venueSection1 = await prisma.venueSection.upsert({
+  await prisma.venueSection.upsert({
     where: { id: BigInt(1) },
     update: {},
     create: {
@@ -105,7 +112,7 @@ async function main() {
     },
   });
 
-  const venueSection2 = await prisma.venueSection.upsert({
+  await prisma.venueSection.upsert({
     where: { id: BigInt(2) },
     update: {},
     create: {
@@ -118,7 +125,7 @@ async function main() {
     },
   });
 
-  const venueSection3 = await prisma.venueSection.upsert({
+  await prisma.venueSection.upsert({
     where: { id: BigInt(3) },
     update: {},
     create: {
@@ -183,7 +190,7 @@ async function main() {
   console.log('✅ Community Meetup event created/verified');
 
   // Create Event Sections for event1 (Summer Music Festival - Paid)
-  const event1GASection = await prisma.eventSection.upsert({
+  await prisma.eventSection.upsert({
     where: { id: BigInt(1) },
     update: {},
     create: {
@@ -191,7 +198,7 @@ async function main() {
       venueId: venue1.id,
       name: 'General Admission',
       type: SectionType.GENERAL,
-      price: 50.00,
+      price: 50.0,
       totalCapacity: 500,
       allocated: 0,
     },
@@ -205,7 +212,7 @@ async function main() {
       venueId: venue1.id,
       name: 'VIP Section',
       type: SectionType.ASSIGNED,
-      price: 150.00,
+      price: 150.0,
       totalCapacity: 100,
       allocated: 0,
     },
@@ -219,7 +226,7 @@ async function main() {
       venueId: venue1.id,
       name: 'Premium Seats',
       type: SectionType.ASSIGNED,
-      price: 250.00,
+      price: 250.0,
       totalCapacity: 50,
       allocated: 0,
     },
@@ -227,7 +234,7 @@ async function main() {
   console.log('✅ Event 1 sections created/verified');
 
   // Create Event Sections for event2 (Tech Conference - Free)
-  const event2MainSection = await prisma.eventSection.upsert({
+  await prisma.eventSection.upsert({
     where: { id: BigInt(4) },
     update: {},
     create: {
@@ -235,7 +242,7 @@ async function main() {
       venueId: venue2.id,
       name: 'Conference Hall',
       type: SectionType.GENERAL,
-      price: 0.00,
+      price: 0.0,
       totalCapacity: 500,
       allocated: 0,
     },
@@ -243,14 +250,14 @@ async function main() {
   console.log('✅ Event 2 sections created/verified');
 
   // Create Event Sections for event3 (Community Meetup - Free)
-  const event3Section = await prisma.eventSection.upsert({
+  await prisma.eventSection.upsert({
     where: { id: BigInt(5) },
     update: {},
     create: {
       eventId: event3.id,
       name: 'Main Room',
       type: SectionType.GENERAL,
-      price: 0.00,
+      price: 0.0,
       totalCapacity: 100,
       allocated: 0,
     },
@@ -276,7 +283,7 @@ async function main() {
           section: 'VIP Section', // Legacy field
           rowNumber: row,
           seatType: SeatType.VIP,
-          price: 150.00,
+          price: 150.0,
           status: SeatStatus.AVAILABLE,
           version: BigInt(0),
         });
@@ -294,7 +301,7 @@ async function main() {
           section: 'Premium Seats', // Legacy field
           rowNumber: row,
           seatType: SeatType.PREMIUM,
-          price: 250.00,
+          price: 250.0,
           status: SeatStatus.AVAILABLE,
           version: BigInt(0),
         });
@@ -303,6 +310,7 @@ async function main() {
 
     await prisma.seat.createMany({
       data: seatsData,
+      skipDuplicates: true,
     });
     console.log(`✅ Created ${seatsData.length} seats for Event 1`);
   } else {
@@ -310,48 +318,49 @@ async function main() {
   }
 
   // Create sample discounts
-  const discount1 = await prisma.discount.upsert({
+  await prisma.discount.upsert({
     where: { code: 'SUMMER25' },
     update: {},
     create: {
       code: 'SUMMER25',
-      amount: 25.00,
+      amount: 25.0,
       type: 'PERCENTAGE',
       isActive: true,
       validFrom: new Date('2026-01-01'),
       validUntil: new Date('2026-12-31'),
       usageLimit: 100,
       usageCount: 0,
-      minOrderAmount: 50.00,
+      minOrderAmount: 50.0,
       eventId: event1.id,
     },
   });
 
-  const discount2 = await prisma.discount.upsert({
+  await prisma.discount.upsert({
     where: { code: 'EARLY50' },
     update: {},
     create: {
       code: 'EARLY50',
-      amount: 50.00,
+      amount: 50.0,
       type: 'FIXED_AMOUNT',
       isActive: true,
       validFrom: new Date('2026-01-01'),
       validUntil: new Date('2026-06-01'),
       usageLimit: 50,
       usageCount: 0,
-      minOrderAmount: 100.00,
+      minOrderAmount: 100.0,
       eventId: event1.id,
     },
   });
   console.log('✅ Discount codes created/verified');
 
   // Create sample advertisement
-  const ad1 = await prisma.advertisement.upsert({
+  await prisma.advertisement.upsert({
     where: { id: BigInt(1) },
     update: {},
     create: {
       title: 'Summer Music Festival - Early Bird Tickets',
-      description: 'Get your tickets now for the biggest music festival of 2026!',
+      description:
+        'Get your tickets now for the biggest music festival of 2026!',
       imageUrl: 'https://picsum.photos/800/400?random=1',
       targetUrl: '/events/1',
       status: 'ACTIVE',
@@ -377,7 +386,9 @@ async function main() {
   console.log('   Super Admin: admin@ticketing.com / ********');
   console.log('   Organizer: organizer@example.com / ********');
   console.log('   Customer: customer@example.com / ********');
-  console.log('\n   ⚠️  Default password is "password123" - Change in production!');
+  console.log(
+    '\n   ⚠️  Default password is "password123" - Change in production!',
+  );
 }
 
 main()

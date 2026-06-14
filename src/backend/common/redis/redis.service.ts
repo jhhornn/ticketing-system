@@ -1,5 +1,12 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import Redis from 'ioredis';
+import { REDIS_CLIENT_LABELS } from './redis.constants.js';
+import { createRedisConfigFromEnv } from './redis.config.js';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
@@ -8,34 +15,18 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private subscriber: Redis;
 
   constructor() {
-    const redisConfig = {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379', 10),
-      password: process.env.REDIS_PASSWORD || undefined,
-      db: parseInt(process.env.REDIS_DB || '0', 10),
-      retryStrategy: (times: number) => {
-        const delay = Math.min(times * 50, 2000);
-        return delay;
-      },
-      maxRetriesPerRequest: 3,
-    };
+    const redisConfig = createRedisConfigFromEnv();
 
     this.client = new Redis(redisConfig);
     this.subscriber = new Redis(redisConfig);
   }
 
   async onModuleInit() {
-    this.client.on('connect', () => {
-      this.logger.log('Redis client connected');
-    });
-
-    this.client.on('error', (err) => {
-      this.logger.error('Redis client error:', err);
-    });
-
-    this.subscriber.on('error', (err) => {
-      this.logger.error('Redis subscriber error:', err);
-    });
+    this.attachClientEventHandlers(this.client, REDIS_CLIENT_LABELS.client);
+    this.attachClientEventHandlers(
+      this.subscriber,
+      REDIS_CLIENT_LABELS.subscriber,
+    );
 
     // Test connection
     try {
@@ -93,7 +84,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   /**
    * Set if not exists (returns true if set, false if key already exists)
    */
-  async setnx(key: string, value: string, ttlSeconds?: number): Promise<boolean> {
+  async setnx(
+    key: string,
+    value: string,
+    ttlSeconds?: number,
+  ): Promise<boolean> {
     if (ttlSeconds) {
       const result = await this.client.set(key, value, 'EX', ttlSeconds, 'NX');
       return result === 'OK';
@@ -163,5 +158,15 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async delMultiple(keys: string[]): Promise<number> {
     if (keys.length === 0) return 0;
     return this.client.del(...keys);
+  }
+
+  private attachClientEventHandlers(client: Redis, label: string): void {
+    client.on('connect', () => {
+      this.logger.log(`Redis ${label} connected`);
+    });
+
+    client.on('error', (err) => {
+      this.logger.error(`Redis ${label} error:`, err);
+    });
   }
 }

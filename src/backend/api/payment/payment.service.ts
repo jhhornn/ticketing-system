@@ -9,6 +9,11 @@ import {
 } from './strategies/payment-strategy.interface';
 import { MockPaymentStrategy } from './strategies/mock-payment.strategy';
 import { StripePaymentStrategy } from './strategies/stripe-payment.strategy';
+import {
+  DEFAULT_PAYMENT_PROVIDER,
+  DEFAULT_PAYMENT_PROVIDER_ENV_KEY,
+  PAYMENT_MESSAGES,
+} from './payment.constants.js';
 
 /**
  * Payment service using Strategy Pattern
@@ -31,10 +36,12 @@ export class PaymentService {
 
     // Set default strategy from environment or use mock
     this.defaultStrategy =
-      (process.env.DEFAULT_PAYMENT_PROVIDER as PaymentMethod) ||
-      PaymentMethod.MOCK;
+      (process.env[DEFAULT_PAYMENT_PROVIDER_ENV_KEY] as PaymentMethod) ||
+      DEFAULT_PAYMENT_PROVIDER;
 
-    this.logger.log(`Payment service initialized with default: ${this.defaultStrategy}`);
+    this.logger.log(
+      `${PAYMENT_MESSAGES.initializedWithDefault} ${this.defaultStrategy}`,
+    );
   }
 
   /**
@@ -45,12 +52,18 @@ export class PaymentService {
     method?: PaymentMethod,
   ): Promise<PaymentResponse> {
     const strategy = this.getStrategy(method);
-    this.logger.log(`Processing payment with ${method || this.defaultStrategy} strategy`);
+    this.logger.log(
+      `${PAYMENT_MESSAGES.processingWithStrategy} ${method || this.defaultStrategy} strategy`,
+    );
 
     try {
       return await strategy.processPayment(request);
     } catch (error) {
-      this.logger.error(`Payment processing failed: ${error.message}`, error.stack);
+      const { message, stack } = this.getErrorDetails(error);
+      this.logger.error(
+        `${PAYMENT_MESSAGES.processingFailed} ${message}`,
+        stack,
+      );
       throw error;
     }
   }
@@ -74,12 +87,15 @@ export class PaymentService {
     method?: PaymentMethod,
   ): Promise<RefundResponse> {
     const strategy = this.getStrategy(method);
-    this.logger.log(`Processing refund for payment: ${request.paymentId}`);
+    this.logger.log(
+      `${PAYMENT_MESSAGES.processingRefundForPayment} ${request.paymentId}`,
+    );
 
     try {
       return await strategy.refundPayment(request);
     } catch (error) {
-      this.logger.error(`Refund failed: ${error.message}`, error.stack);
+      const { message, stack } = this.getErrorDetails(error);
+      this.logger.error(`${PAYMENT_MESSAGES.refundFailed} ${message}`, stack);
       throw error;
     }
   }
@@ -87,16 +103,15 @@ export class PaymentService {
   /**
    * Handle webhook from payment provider
    */
-  async handleWebhook(
-    payload: any,
-    method: PaymentMethod,
-  ): Promise<void> {
+  async handleWebhook(payload: any, method: PaymentMethod): Promise<void> {
     const strategy = this.getStrategy(method);
 
     if (strategy.handleWebhook) {
       await strategy.handleWebhook(payload);
     } else {
-      this.logger.warn(`Webhook handling not implemented for ${method}`);
+      this.logger.warn(
+        `${PAYMENT_MESSAGES.webhookNotImplementedFor} ${method}`,
+      );
     }
   }
 
@@ -105,7 +120,7 @@ export class PaymentService {
    */
   registerStrategy(method: PaymentMethod, strategy: IPaymentStrategy): void {
     this.strategies.set(method, strategy);
-    this.logger.log(`Registered new payment strategy: ${method}`);
+    this.logger.log(`${PAYMENT_MESSAGES.registeredNewStrategy} ${method}`);
   }
 
   /**
@@ -117,7 +132,7 @@ export class PaymentService {
 
     if (!strategy) {
       throw new BadRequestException(
-        `Payment method ${selectedMethod} is not supported`,
+        `Payment method ${selectedMethod} ${PAYMENT_MESSAGES.unsupportedMethod}`,
       );
     }
 
@@ -129,5 +144,21 @@ export class PaymentService {
    */
   getAvailableMethods(): PaymentMethod[] {
     return Array.from(this.strategies.keys());
+  }
+
+  private getErrorDetails(error: unknown): {
+    message: string;
+    stack?: string;
+  } {
+    if (error instanceof Error) {
+      return {
+        message: error.message,
+        stack: error.stack,
+      };
+    }
+
+    return {
+      message: String(error),
+    };
   }
 }

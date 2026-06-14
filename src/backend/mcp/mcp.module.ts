@@ -9,16 +9,8 @@ import { DatabaseModule } from '../common/database/database.module.js';
 import { McpController } from './mcp.controller.js';
 
 @Module({
-  imports: [
-    DatabaseModule,
-    EventsModule,
-    SeatsModule,
-  ],
+  imports: [DatabaseModule, EventsModule, SeatsModule],
   controllers: [McpController],
-  providers: [
-    McpService,
-    EventsTool,
-    SeatsTool,
-  ],
+  providers: [McpService, EventsTool, SeatsTool],
 })
 export class McpModule {}

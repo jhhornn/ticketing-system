@@ -59,7 +59,7 @@ export class SeatsService {
       ([name, sectionSeats]) => {
         const prices = sectionSeats.map((s) => parseFloat(s.price));
         const availableCount = sectionSeats.filter(
-          (s) => s.status === 'AVAILABLE',
+          (s) => s.status === SeatStatus.AVAILABLE,
         ).length;
 
         return {
@@ -73,7 +73,9 @@ export class SeatsService {
       },
     );
 
-    const totalAvailable = seats.filter((s) => s.status === 'AVAILABLE').length;
+    const totalAvailable = seats.filter(
+      (s) => s.status === SeatStatus.AVAILABLE,
+    ).length;
 
     return {
       eventId: Number(eventId),

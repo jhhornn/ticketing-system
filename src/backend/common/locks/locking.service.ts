@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  LOCK_DEFAULTS,
+  LOCK_PREFIX,
+  RELEASE_LOCK_SCRIPT,
+} from './locks.constants.js';
 
 export interface LockOptions {
   ttlSeconds?: number;
@@ -17,19 +22,6 @@ export interface Lock {
 @Injectable()
 export class LockingService {
   private readonly logger = new Logger(LockingService.name);
-  private readonly DEFAULT_TTL_SECONDS = 30;
-  private readonly DEFAULT_RETRIES = 0;
-  private readonly DEFAULT_RETRY_DELAY_MS = 100;
-
-  // Lua script for atomic lock release
-  // Only deletes the lock if the value matches (prevents deleting someone else's lock)
-  private readonly RELEASE_LOCK_SCRIPT = `
-    if redis.call('get', KEYS[1]) == ARGV[1] then
-      return redis.call('del', KEYS[1])
-    else
-      return 0
-    end
-  `;
 
   constructor(private readonly redisService: RedisService) {}
 
@@ -43,9 +35,7 @@ export class LockingService {
     resource: string,
     options: LockOptions = {},
   ): Promise<Lock | null> {
-    const ttlSeconds = options.ttlSeconds || this.DEFAULT_TTL_SECONDS;
-    const retries = options.retries || this.DEFAULT_RETRIES;
-    const retryDelayMs = options.retryDelayMs || this.DEFAULT_RETRY_DELAY_MS;
+    const { ttlSeconds, retries, retryDelayMs } = this.resolveOptions(options);
 
     const lockKey = this.getLockKey(resource);
     const lockValue = uuidv4();
@@ -85,8 +75,8 @@ export class LockingService {
    */
   async releaseLock(lock: Lock): Promise<boolean> {
     try {
-      const result = await this.redisService.eval(
-        this.RELEASE_LOCK_SCRIPT,
+      const result: unknown = await this.redisService.eval(
+        RELEASE_LOCK_SCRIPT,
         [lock.key],
         [lock.value],
       );
@@ -238,7 +228,7 @@ export class LockingService {
    * Get the lock key for a resource
    */
   private getLockKey(resource: string): string {
-    return `lock:${resource}`;
+    return `${LOCK_PREFIX}${resource}`;
   }
 
   /**
@@ -246,5 +236,13 @@ export class LockingService {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private resolveOptions(options: LockOptions) {
+    return {
+      ttlSeconds: options.ttlSeconds || LOCK_DEFAULTS.ttlSeconds,
+      retries: options.retries || LOCK_DEFAULTS.retries,
+      retryDelayMs: options.retryDelayMs || LOCK_DEFAULTS.retryDelayMs,
+    };
   }
 }

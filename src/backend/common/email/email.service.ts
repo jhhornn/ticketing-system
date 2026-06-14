@@ -1,10 +1,11 @@
 import { Injectable, Inject } from '@nestjs/common';
 import type { EmailStrategy } from './strategies/email-strategy.interface.js';
+import { EMAIL_STRATEGY_TOKEN } from './email.constants.js';
 
 @Injectable()
 export class EmailService {
   constructor(
-    @Inject('EMAIL_STRATEGY')
+    @Inject(EMAIL_STRATEGY_TOKEN)
     private emailStrategy: EmailStrategy,
   ) {}
 

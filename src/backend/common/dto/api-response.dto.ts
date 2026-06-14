@@ -118,7 +118,8 @@ export class ErrorResponseDto {
   statusCode: number;
 
   @ApiProperty({
-    description: 'Indicates if the request was successful (always false for errors)',
+    description:
+      'Indicates if the request was successful (always false for errors)',
     example: false,
   })
   success: boolean;

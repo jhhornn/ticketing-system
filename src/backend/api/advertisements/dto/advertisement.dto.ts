@@ -11,7 +11,11 @@ import {
   MaxLength,
   IsDateString,
 } from 'class-validator';
-import { AdStatus, AdPlacement } from '../../../common/enums/index.js';
+import {
+  AdStatus,
+  AdPlacement,
+  AdInteractionType,
+} from '../../../common/enums/index.js';
 
 export class CreateAdvertisementDto {
   @ApiProperty({ example: 'Summer Festival 2026' })
@@ -156,7 +160,7 @@ export class AdvertisementResponseDto {
 }
 
 export class IncrementAdStatsDto {
-  @ApiProperty({ enum: ['impression', 'click'] })
-  @IsEnum(['impression', 'click'])
-  type: 'impression' | 'click';
+  @ApiProperty({ enum: AdInteractionType })
+  @IsEnum(AdInteractionType)
+  type: AdInteractionType;
 }

@@ -1,10 +1,4 @@
-import {
-  IsNotEmpty,
-  IsString,
-  IsNumber,
-  IsOptional,
-  IsEnum,
-} from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { PaymentMethod } from '../../payment/strategies/payment-strategy.interface.js';
 import { BookingStatus, PaymentStatus } from '../../../common/enums/index.js';
@@ -100,7 +94,7 @@ export class BookingResponseDto {
 
   @ApiProperty({
     description: 'Total booking amount',
-    example: 150.00,
+    example: 150.0,
   })
   totalAmount: number;
 

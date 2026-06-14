@@ -1,43 +1,86 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { ChatOpenAI } from '@langchain/openai';
-import { HumanMessage } from '@langchain/core/messages';
 
-async function main() {
+type ToolContentItem = {
+  text?: string;
+};
+
+type ToolCallResult = {
+  content?: ToolContentItem[];
+};
+
+type EventListItem = {
+  id: number;
+};
+
+function getFirstTextContent(result: ToolCallResult): string | null {
+  const [firstItem] = result.content ?? [];
+  return typeof firstItem?.text === 'string' ? firstItem.text : null;
+}
+
+function parseEventList(rawText: string): EventListItem[] {
+  try {
+    const parsed = JSON.parse(rawText) as unknown;
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.filter(
+      (entry): entry is EventListItem =>
+        typeof entry === 'object' &&
+        entry !== null &&
+        typeof (entry as { id?: unknown }).id === 'number',
+    );
+  } catch {
+    return [];
+  }
+}
+
+export async function main() {
   // 1. Connect to the MCP Server
   const transport = new StdioClientTransport({
     command: 'node',
     args: ['dist/mcp/main.js'],
   });
 
-  const client = new Client({
-    name: 'LangChain Client',
-    version: '1.0.0',
-  }, {
-    capabilities: {},
-  });
+  const client = new Client(
+    {
+      name: 'LangChain Client',
+      version: '1.0.0',
+    },
+    {
+      capabilities: {},
+    },
+  );
 
   await client.connect(transport);
 
   // 2. List available tools
   const toolsList = await client.listTools();
-  console.log('Available Tools:', toolsList.tools.map(t => t.name));
+  console.log(
+    'Available Tools:',
+    toolsList.tools.map((t) => t.name),
+  );
 
   // 3. Use with LangChain (Conceptual - LangChain MCP integration varies)
   // For this example, we'll manually invoke the tool to demonstrate
-  
+
   console.log('\n--- Querying Events ---');
-  const events: any = await client.callTool({
+  const events = (await client.callTool({
     name: 'list_events',
     arguments: {},
-  });
+  })) as ToolCallResult;
   console.log('Events:', events);
 
-  if (events.content && events.content[0] && events.content[0].text) {
-    const eventList = JSON.parse(events.content[0].text);
+  const firstEventsText = getFirstTextContent(events);
+
+  if (firstEventsText) {
+    const eventList = parseEventList(firstEventsText);
+
     if (eventList.length > 0) {
       const eventId = eventList[0].id;
-      
+
       console.log(`\n--- Checking Seats for Event ${eventId} ---`);
       const seats = await client.callTool({
         name: 'get_seat_availability_summary',

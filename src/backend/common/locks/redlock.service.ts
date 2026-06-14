@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  REDLOCK_DEFAULTS,
+  REDLOCK_PREFIX,
+  RELEASE_LOCK_SCRIPT,
+} from './locks.constants.js';
 
 export interface RedlockOptions {
   ttlMs?: number;
@@ -26,18 +31,6 @@ export interface RedlockResult {
 @Injectable()
 export class RedlockService {
   private readonly logger = new Logger(RedlockService.name);
-  private readonly DEFAULT_TTL_MS = 30000;
-  private readonly DEFAULT_RETRIES = 3;
-  private readonly DEFAULT_RETRY_DELAY_MS = 200;
-  private readonly DEFAULT_CLOCK_DRIFT_MS = 100;
-
-  private readonly RELEASE_LOCK_SCRIPT = `
-    if redis.call('get', KEYS[1]) == ARGV[1] then
-      return redis.call('del', KEYS[1])
-    else
-      return 0
-    end
-  `;
 
   // In production, you would have multiple Redis instances
   // For now, we'll use a single instance but the algorithm supports multiple
@@ -46,6 +39,10 @@ export class RedlockService {
   constructor(private readonly redisService: RedisService) {
     // In production, inject multiple RedisService instances
     this.redisInstances = [redisService];
+  }
+
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
   }
 
   /**
@@ -58,10 +55,9 @@ export class RedlockService {
     resource: string,
     options: RedlockOptions = {},
   ): Promise<RedlockResult> {
-    const ttlMs = options.ttlMs || this.DEFAULT_TTL_MS;
-    const clockDriftMs = options.clockDriftMs || this.DEFAULT_CLOCK_DRIFT_MS;
+    const { ttlMs, clockDriftMs } = this.resolveOptions(options);
 
-    const lockKey = `redlock:${resource}`;
+    const lockKey = `${REDLOCK_PREFIX}${resource}`;
     const lockValue = uuidv4();
     const startTime = Date.now();
 
@@ -72,17 +68,11 @@ export class RedlockService {
     const acquirePromises = this.redisInstances.map(async (redis) => {
       try {
         const client = redis.getClient();
-        const result = await client.set(
-          lockKey,
-          lockValue,
-          'PX',
-          ttlMs,
-          'NX',
-        );
+        const result = await client.set(lockKey, lockValue, 'PX', ttlMs, 'NX');
         return result === 'OK';
       } catch (error) {
         this.logger.warn(
-          `Failed to acquire lock on Redis instance: ${error.message}`,
+          `Failed to acquire lock on Redis instance: ${this.getErrorMessage(error)}`,
         );
         return false;
       }
@@ -126,8 +116,7 @@ export class RedlockService {
     resource: string,
     options: RedlockOptions = {},
   ): Promise<RedlockResult> {
-    const retries = options.retries || this.DEFAULT_RETRIES;
-    const retryDelayMs = options.retryDelayMs || this.DEFAULT_RETRY_DELAY_MS;
+    const { retries, retryDelayMs } = this.resolveOptions(options);
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       const result = await this.tryLock(resource, options);
@@ -154,10 +143,10 @@ export class RedlockService {
   async releaseLock(resource: string, value: string): Promise<void> {
     const releasePromises = this.redisInstances.map(async (redis) => {
       try {
-        await redis.eval(this.RELEASE_LOCK_SCRIPT, [resource], [value]);
+        await redis.eval(RELEASE_LOCK_SCRIPT, [resource], [value]);
       } catch (error) {
         this.logger.warn(
-          `Failed to release lock on Redis instance: ${error.message}`,
+          `Failed to release lock on Redis instance: ${this.getErrorMessage(error)}`,
         );
       }
     });
@@ -203,5 +192,14 @@ export class RedlockService {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private resolveOptions(options: RedlockOptions) {
+    return {
+      ttlMs: options.ttlMs || REDLOCK_DEFAULTS.ttlMs,
+      retries: options.retries || REDLOCK_DEFAULTS.retries,
+      retryDelayMs: options.retryDelayMs || REDLOCK_DEFAULTS.retryDelayMs,
+      clockDriftMs: options.clockDriftMs || REDLOCK_DEFAULTS.clockDriftMs,
+    };
   }
 }

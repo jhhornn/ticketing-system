@@ -3,6 +3,19 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
+type DeleteManyDelegate = {
+  deleteMany: () => Promise<unknown>;
+};
+
+function hasDeleteMany(value: unknown): value is DeleteManyDelegate {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'deleteMany' in value &&
+    typeof (value as { deleteMany?: unknown }).deleteMany === 'function'
+  );
+}
+
 @Injectable()
 export class PrismaService
   extends PrismaClient
@@ -48,17 +61,11 @@ export class PrismaService
       (key) => key[0] !== '_' && key !== 'constructor',
     );
 
-    return Promise.all(
-      models.map((modelKey) => {
-        const model = this[modelKey as keyof typeof this];
-        if (
-          typeof model === 'object' &&
-          model !== null &&
-          'deleteMany' in model
-        ) {
-          return (model as any).deleteMany();
-        }
-      }),
-    );
+    const deletions = models.flatMap((modelKey) => {
+      const model = this[modelKey as keyof this] as unknown;
+      return hasDeleteMany(model) ? [model.deleteMany()] : [];
+    });
+
+    return Promise.all(deletions);
   }
 }

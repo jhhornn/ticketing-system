@@ -1,5 +1,5 @@
-// src/backend/api/sections/dto/sections.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
+import { SectionType } from '@prisma/client';
 import {
   IsString,
   IsNumber,
@@ -9,11 +9,6 @@ import {
   IsOptional,
   IsBoolean,
 } from 'class-validator';
-
-export enum SectionType {
-  GENERAL = 'GENERAL',
-  ASSIGNED = 'ASSIGNED',
-}
 
 export class CreateSectionDto {
   @ApiProperty({

@@ -6,11 +6,13 @@ import {
   Param,
   HttpCode,
   HttpStatus,
+  ParseIntPipe,
   UseGuards,
   Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import type { IAuthenticatedRequest } from '../../common/interfaces/index.js';
 import { BookingService } from './booking.service.js';
 import {
   ConfirmBookingDto,
@@ -105,7 +107,7 @@ Retrieves booking details using the unique booking reference code.
   @ApiStandardArrayResponse(200, 'My bookings retrieved', BookingResponseDto)
   @ApiErrorResponses()
   async getMyBookings(
-    @Req() req: { user: { id: string } },
+    @Req() req: IAuthenticatedRequest,
   ): Promise<BookingResponseDto[]> {
     const userId = req.user.id;
     return this.bookingService.getUserBookings(userId);
@@ -159,9 +161,9 @@ Retrieves all bookings for a specific event. Only accessible by the event owner.
   @ApiStandardArrayResponse(200, 'Event bookings retrieved', BookingResponseDto)
   @ApiErrorResponses()
   async getEventBookings(
-    @Param('eventId') eventId: string,
-    @Req() req: { user: { id: string } },
+    @Param('eventId', ParseIntPipe) eventId: number,
+    @Req() req: IAuthenticatedRequest,
   ): Promise<BookingResponseDto[]> {
-    return this.bookingService.getEventBookings(Number(eventId), req.user.id);
+    return this.bookingService.getEventBookings(eventId, req.user.id);
   }
 }
