@@ -1,57 +1,31 @@
 # Observability Stack - Docker Compose
-# 
+#
 # WHY THIS STACK:
-# - Loki: Log aggregation (like Elasticsearch but cheaper/simpler)
-# - Promtail: Log collector (sends logs from files to Loki)
+# - Jaeger all-in-one for traces, metrics ingestion, and OTLP logs
+# - Single local service for observability during development
 #
 # OBSERVABILITY FLOW:
-# 1. Your app writes JSON logs to stdout/files
-# 2. Promtail collects logs and sends to Loki
-#
-# ALTERNATIVES:
-# - For tracing visualization, use Jaeger
-# - For local log aggregation, use this docker-compose
+# 1. App emits structured logs to stdout
+# 2. App exports telemetry via OTLP HTTP/gRPC
+# 3. Jaeger receives and visualizes telemetry
 
 version: '3.8'
 
 services:
-  # Loki: Log aggregation system
-  # WHY: Stores and indexes logs for fast querying
-  # COST: Free and lightweight compared to ELK stack
-  loki:
-    image: grafana/loki:2.9.0
-    container_name: ticketing-loki
+  # Jaeger: all-in-one observability backend for local development
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: ticketing-jaeger
     ports:
-      - "3100:3100"
-    command: -config.file=/etc/loki/local-config.yaml
-    volumes:
-      - ./observability/loki-config.yaml:/etc/loki/local-config.yaml
-      - loki-data:/loki
+      - "16686:16686" # Jaeger UI
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
     networks:
       - observability
     restart: unless-stopped
-
-  # Promtail: Log shipper
-  # WHY: Collects logs from Docker containers and sends to Loki
-  # PATTERN: Tails log files, adds labels, forwards to Loki
-  promtail:
-    image: grafana/promtail:2.9.0
-    container_name: ticketing-promtail
-    volumes:
-      - ./observability/promtail-config.yaml:/etc/promtail/config.yaml
-      - /var/log:/var/log
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: -config.file=/etc/promtail/config.yaml
-    networks:
-      - observability
-    restart: unless-stopped
-    depends_on:
-      - loki
 
 networks:
   observability:
     driver: bridge
-
-volumes:
-  loki-data:
