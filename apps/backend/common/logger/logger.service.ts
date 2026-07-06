@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import pino, { Logger as PinoLogger } from 'pino';
 import { trace } from '@opentelemetry/api';
+import { logs, SeverityNumber } from '@opentelemetry/api-logs';
 import {
   createLoggerEnvironmentContext,
   isDevelopmentEnvironment,
@@ -32,9 +33,12 @@ import {
 export class LoggerService {
   private readonly logger: PinoLogger;
   private readonly environmentContext: Record<string, unknown>;
+  private readonly otelLogger = logs.getLogger('ticketing-api.logger');
+  private readonly enableOtelLogBridge: boolean;
 
   constructor() {
     this.environmentContext = createLoggerEnvironmentContext();
+    this.enableOtelLogBridge = process.env.OTEL_LOG_BRIDGE_ENABLED !== 'false';
 
     const isDevelopment = isDevelopmentEnvironment();
 
@@ -148,7 +152,9 @@ export class LoggerService {
    * @param msg - Brief message (optional, mainly for human readability)
    */
   info(obj: Record<string, unknown>, msg?: string): void {
-    this.logger.info({ ...this.getTraceContext(), ...obj }, msg || '');
+    const event = { ...this.getTraceContext(), ...obj };
+    this.logger.info(event, msg || '');
+    this.emitOtelLog('INFO', SeverityNumber.INFO, event, msg);
   }
 
   /**
@@ -161,7 +167,9 @@ export class LoggerService {
    * @param msg - Brief error message
    */
   error(obj: Record<string, unknown>, msg?: string): void {
-    this.logger.error({ ...this.getTraceContext(), ...obj }, msg || '');
+    const event = { ...this.getTraceContext(), ...obj };
+    this.logger.error(event, msg || '');
+    this.emitOtelLog('ERROR', SeverityNumber.ERROR, event, msg);
   }
 
   /**
@@ -171,7 +179,91 @@ export class LoggerService {
    * Use sparingly - wide events at info level should be your primary tool.
    */
   debug(obj: Record<string, unknown>, msg?: string): void {
-    this.logger.debug({ ...this.getTraceContext(), ...obj }, msg || '');
+    const event = { ...this.getTraceContext(), ...obj };
+    this.logger.debug(event, msg || '');
+    this.emitOtelLog('DEBUG', SeverityNumber.DEBUG, event, msg);
+  }
+
+  private emitOtelLog(
+    severityText: 'INFO' | 'ERROR' | 'DEBUG',
+    severityNumber: SeverityNumber,
+    event: Record<string, unknown>,
+    msg?: string,
+  ): void {
+    if (!this.enableOtelLogBridge) return;
+
+    try {
+      const attributes = this.toOtelAttributes(event);
+      if (msg) {
+        attributes['log.message'] = msg;
+      }
+
+      this.otelLogger.emit({
+        severityText,
+        severityNumber,
+        body: msg || 'application_log',
+        attributes,
+      });
+    } catch {
+      // Avoid throwing from logging path.
+    }
+  }
+
+  private toOtelAttributes(
+    input: Record<string, unknown>,
+  ): Record<string, string | number | boolean | Array<string | number | boolean>> {
+    const attributes: Record<
+      string,
+      string | number | boolean | Array<string | number | boolean>
+    > = {};
+
+    for (const [key, value] of Object.entries(input)) {
+      const converted = this.toOtelAttributeValue(value);
+      if (converted !== undefined) {
+        attributes[key] = converted;
+      }
+    }
+
+    return attributes;
+  }
+
+  private toOtelAttributeValue(
+    value: unknown,
+  ): string | number | boolean | Array<string | number | boolean> | undefined {
+    if (value === null || value === undefined) return undefined;
+
+    if (
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean'
+    ) {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      const converted = value
+        .map((item) => {
+          if (
+            typeof item === 'string' ||
+            typeof item === 'number' ||
+            typeof item === 'boolean'
+          ) {
+            return item;
+          }
+
+          return JSON.stringify(item);
+        })
+        .filter(
+          (item): item is string | number | boolean =>
+            typeof item === 'string' ||
+            typeof item === 'number' ||
+            typeof item === 'boolean',
+        );
+
+      return converted.length ? converted : undefined;
+    }
+
+    return JSON.stringify(value);
   }
 
   /**

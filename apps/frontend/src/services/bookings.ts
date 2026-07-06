@@ -53,6 +53,7 @@ export interface Booking {
   status: BookingStatus;
   paymentStatus: PaymentStatus;
   paymentTransactionId?: string;
+  paymentMetadata?: Record<string, unknown>;
   seatNumbers: string[];
   createdAt: string;
   confirmedAt?: string;

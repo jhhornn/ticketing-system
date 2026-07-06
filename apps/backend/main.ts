@@ -22,6 +22,8 @@ async function bootstrap() {
     // Disable default NestJS logger, use our structured logger
     // WHY: Consistent logging format across the entire application
     logger: false,
+    // Preserve raw request body so webhook signature validation works
+    rawBody: true,
   });
 
   // Get our custom logger for bootstrap logs

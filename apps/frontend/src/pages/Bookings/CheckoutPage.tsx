@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CreditCard, CheckCircle, Loader2, ArrowLeft, Calendar, MapPin, Clock, Ticket } from 'lucide-react';
-import { BookingsService } from '../../services/bookings';
+import { BookingsService, PaymentMethod as PaymentMethodEnum } from '../../services/bookings';
 import { EventsService } from '../../services/events';
 import { ReservationsService } from '../../services/reservations';
 import { useAuth } from '../../hooks/useAuth';
@@ -46,6 +46,9 @@ export const CheckoutPage: React.FC = () => {
     const [confirmed, setConfirmed] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [bookingReference, setBookingReference] = useState<string | null>(null);
+    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodEnum>(
+        PaymentMethodEnum.PAYSTACK
+    );
 
     const [event, setEvent] = useState<EventDetails | null>(null);
     const [timeRemaining, setTimeRemaining] = useState<number>(0);
@@ -141,7 +144,7 @@ export const CheckoutPage: React.FC = () => {
         navigate(`/events/${state.eventId}`);
     });
 
-    const confirmBookingWithMockPayment = async () => {
+    const confirmBooking = async () => {
         if (!state?.reservationId || !user?.id) {
             setError('Missing reservation or user information');
             return;
@@ -159,14 +162,32 @@ export const CheckoutPage: React.FC = () => {
             const response = await BookingsService.confirmBooking({
                 reservationId: String(state.reservationId),
                 userId: user.id,
-                paymentMethod: 'mock',
+                paymentMethod: selectedPaymentMethod,
                 idempotencyKey,
                 discountCode: state.discountCode,
                 metadata: {
                     eventName: state.eventName,
-                    source: 'checkout_page'
+                    source: 'checkout_page',
+                    email: user.email,
                 }
             });
+
+            if (
+                selectedPaymentMethod === PaymentMethodEnum.PAYSTACK &&
+                response.paymentStatus === 'PENDING'
+            ) {
+                const authorizationUrl =
+                    typeof response.paymentMetadata?.authorizationUrl === 'string'
+                        ? response.paymentMetadata.authorizationUrl
+                        : undefined;
+
+                if (!authorizationUrl) {
+                    throw new Error('Paystack checkout URL was not returned by the server');
+                }
+
+                window.location.assign(authorizationUrl);
+                return;
+            }
 
             const wasReplay = false;
 
@@ -310,7 +331,7 @@ export const CheckoutPage: React.FC = () => {
                                     error={paymentError}
                                     onPrimaryAction={() => {
                                         if (paymentError.primaryAction.action === 'retry') {
-                                            confirmBookingWithMockPayment();
+                                            confirmBooking();
                                         } else if (paymentError.primaryAction.action === 'retry_modified') {
                                             clearPaymentError();
                                         } else if (paymentError.primaryAction.action === 'restart') {
@@ -466,14 +487,34 @@ export const CheckoutPage: React.FC = () => {
 
                     <div className="mb-6">
                         <h2 className="text-xl font-bold mb-4 font-poppins">Payment Method</h2>
-                        <div className="bg-muted/30 rounded-lg p-4 flex items-center gap-3 border">
-                            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                                <CreditCard className="w-6 h-6 text-primary" />
-                            </div>
-                            <div>
-                                <p className="font-semibold text-foreground">Mock Payment (Test Mode)</p>
-                                <p className="text-sm text-muted-foreground">No actual payment will be charged</p>
-                            </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setSelectedPaymentMethod(PaymentMethodEnum.PAYSTACK)}
+                                className={`text-left rounded-lg p-4 border transition-colors ${
+                                    selectedPaymentMethod === PaymentMethodEnum.PAYSTACK
+                                        ? 'border-primary bg-primary/10'
+                                        : 'border-border bg-muted/30 hover:bg-muted/50'
+                                }`}
+                            >
+                                <p className="font-semibold text-foreground">Paystack</p>
+                                <p className="text-sm text-muted-foreground">
+                                    Secure hosted checkout (card, bank transfer, and local methods).
+                                </p>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setSelectedPaymentMethod(PaymentMethodEnum.MOCK)}
+                                className={`text-left rounded-lg p-4 border transition-colors ${
+                                    selectedPaymentMethod === PaymentMethodEnum.MOCK
+                                        ? 'border-primary bg-primary/10'
+                                        : 'border-border bg-muted/30 hover:bg-muted/50'
+                                }`}
+                            >
+                                <p className="font-semibold text-foreground">Mock (Test Mode)</p>
+                                <p className="text-sm text-muted-foreground">No real charge. Useful for local testing.</p>
+                            </button>
                         </div>
                     </div>
 
@@ -487,19 +528,23 @@ export const CheckoutPage: React.FC = () => {
                             Back to Event
                         </button>
                         <button
-                            onClick={confirmBookingWithMockPayment}
+                            onClick={confirmBooking}
                             disabled={confirming || timeRemaining === 0}
                             className="flex-1 inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-semibold shadow-soft hover:bg-primary/90 transition-colors disabled:opacity-50"
                         >
                             {confirming ? (
                                 <>
                                     <Loader2 className="w-5 h-5 animate-spin" />
-                                    Processing Payment...
+                                    {selectedPaymentMethod === PaymentMethodEnum.PAYSTACK
+                                        ? 'Connecting to Paystack...'
+                                        : 'Processing Payment...'}
                                 </>
                             ) : (
                                 <>
                                     <CreditCard className="w-5 h-5" />
-                                    Confirm & Pay
+                                    {selectedPaymentMethod === PaymentMethodEnum.PAYSTACK
+                                        ? 'Continue to Paystack'
+                                        : 'Confirm & Pay'}
                                 </>
                             )}
                         </button>
@@ -514,7 +559,7 @@ export const CheckoutPage: React.FC = () => {
                             error={paymentError}
                             onPrimaryAction={() => {
                                 if (paymentError.primaryAction.action === 'retry') {
-                                    confirmBookingWithMockPayment();
+                                    confirmBooking();
                                 } else if (paymentError.primaryAction.action === 'retry_modified') {
                                     clearPaymentError();
                                 } else if (paymentError.primaryAction.action === 'restart') {

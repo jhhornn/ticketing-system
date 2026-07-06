@@ -120,6 +120,12 @@ export class BookingResponseDto {
   paymentId?: string;
 
   @ApiProperty({
+    description: 'Payment provider metadata (e.g. hosted checkout URL)',
+    required: false,
+  })
+  paymentMetadata?: Record<string, any>;
+
+  @ApiProperty({
     description: 'List of booked seat numbers',
     type: [String],
     example: ['A1', 'A2'],

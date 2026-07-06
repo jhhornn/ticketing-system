@@ -61,6 +61,7 @@ export class BookingService {
 
     // Start saga/transaction
     let paymentId: string | undefined;
+    let paymentMetadata: Record<string, unknown> | undefined;
     const seatIds: bigint[] = []; // Only for assigned seats
     const sectionAllocations: { sectionId: bigint; quantity: number }[] = []; // For GA
 
@@ -246,6 +247,7 @@ export class BookingService {
 
             paymentId = paymentResponse.paymentId;
             paymentStatus = paymentResponse.status;
+            paymentMetadata = paymentResponse.metadata;
 
             this.logger.log(
               `Payment processed: ${paymentId}, Status: ${paymentStatus}`,
@@ -361,6 +363,7 @@ export class BookingService {
               ...booking,
               totalAmount: Number(booking.totalAmount),
               paymentId: booking.paymentId ?? '',
+              paymentMetadata,
             },
             seatNumbers,
           );
@@ -564,6 +567,7 @@ export class BookingService {
       status: BookingStatus;
       paymentStatus: PaymentStatus;
       paymentId: string;
+      paymentMetadata?: Record<string, unknown>;
       createdAt: Date;
       confirmedAt: Date | null;
     },
@@ -578,6 +582,7 @@ export class BookingService {
       status: booking.status,
       paymentStatus: booking.paymentStatus,
       paymentId: booking.paymentId,
+      paymentMetadata: booking.paymentMetadata,
       seatNumbers,
       createdAt: booking.createdAt,
       confirmedAt: booking.confirmedAt ?? undefined,

@@ -9,6 +9,7 @@ import {
 } from './strategies/payment-strategy.interface';
 import { MockPaymentStrategy } from './strategies/mock-payment.strategy';
 import { StripePaymentStrategy } from './strategies/stripe-payment.strategy';
+import { PaystackPaymentStrategy } from './strategies/paystack-payment.strategy';
 import {
   DEFAULT_PAYMENT_PROVIDER,
   DEFAULT_PAYMENT_PROVIDER_ENV_KEY,
@@ -28,11 +29,13 @@ export class PaymentService {
   constructor(
     private readonly mockStrategy: MockPaymentStrategy,
     private readonly stripeStrategy: StripePaymentStrategy,
+    private readonly paystackStrategy: PaystackPaymentStrategy,
   ) {
     // Register all payment strategies
     this.strategies = new Map();
     this.strategies.set(PaymentMethod.MOCK, mockStrategy);
     this.strategies.set(PaymentMethod.STRIPE, stripeStrategy);
+    this.strategies.set(PaymentMethod.PAYSTACK, paystackStrategy);
 
     // Set default strategy from environment or use mock
     this.defaultStrategy =

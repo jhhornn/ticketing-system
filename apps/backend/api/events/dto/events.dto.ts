@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import { Trim } from 'class-sanitizer';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { EventStatus } from '../../../common/enums/index.js';
 
 export class CreateEventDto {
@@ -28,6 +29,7 @@ export class CreateEventDto {
     required: false,
     description: 'Venue ID if using registered venue',
   })
+  @Type(() => Number)
   @IsNumber()
   @IsOptional()
   venueId?: number;
@@ -43,6 +45,7 @@ export class CreateEventDto {
   customVenue?: string;
 
   @ApiProperty({ example: 1000 })
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   totalSeats: number;
@@ -72,6 +75,7 @@ export class UpdateEventDto {
   eventDate?: string;
 
   @ApiProperty({ example: 1, required: false })
+  @Type(() => Number)
   @IsNumber()
   @IsOptional()
   venueId?: number;
@@ -82,6 +86,7 @@ export class UpdateEventDto {
   customVenue?: string;
 
   @ApiProperty({ example: 1000, required: false })
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   @IsOptional()
