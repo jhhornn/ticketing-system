@@ -7,7 +7,7 @@
 Run the Prisma migration to add the AuditLog table:
 
 ```bash
-cd src/backend
+cd apps/backend
 npx prisma migrate dev --name add_audit_log_table
 ```
 
@@ -335,7 +335,7 @@ if (eventUpdate.hasBookings && eventUpdate.action === 'DELETE') {
 **Solution:**
 ```bash
 # Run migration
-cd src/backend
+cd apps/backend
 npx prisma migrate dev
 npx prisma generate
 ```

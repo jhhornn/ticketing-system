@@ -14,12 +14,12 @@ This is a **pnpm workspace monorepo** with the following structure:
 
 ```
 ticketing-system/
-├── src/
+├── apps/
 │   ├── backend/          # NestJS API
 │   └── frontend/         # React + Vite app
 ├── pnpm-workspace.yaml  # Workspace configuration
 ├── package.json         # Root workspace scripts
-└── DEVELOPER_SETUP.md
+└── docs/
 ```
 
 ## Quick Start
@@ -63,7 +63,7 @@ pnpm prisma:generate
 pnpm prisma:migrate
 
 # (Optional) Seed the database
-pnpm --filter backend prisma:seed
+pnpm --filter @ticketing/backend prisma:seed
 ```
 
 ### 4. Start Development Servers
@@ -119,14 +119,14 @@ You can run package-specific commands using pnpm's `--filter` flag:
 
 ```bash
 # Backend commands
-pnpm --filter backend <command>
+pnpm --filter /backend <command>
 
 # Frontend commands
-pnpm --filter frontend <command>
+pnpm --filter /frontend <command>
 
 # Examples:
-pnpm --filter backend test
-pnpm --filter frontend lint
+pnpm --filter /backend test
+pnpm --filter /frontend lint
 ```
 
 ## MCP Server Setup
@@ -207,20 +207,20 @@ pnpm prisma:studio
 ### Reset Database
 
 ```bash
-pnpm --filter backend prisma:migrate:reset
+pnpm --filter /backend prisma:migrate:reset
 ```
 
 ### Format Code
 
 ```bash
-pnpm --filter backend format
-pnpm --filter frontend format
+pnpm --filter /backend format
+pnpm --filter /frontend format
 ```
 
 ### Run Tests
 
 ```bash
-pnpm --filter backend test
+pnpm --filter /backend test
 ```
 
 ### Clean Install (if needed)

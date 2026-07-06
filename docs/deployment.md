@@ -33,7 +33,7 @@ PORT="3000"
 ### 2. Database Migration
 
 ```bash
-cd src/backend
+cd apps/backend
 
 # Run all pending migrations
 npx prisma migrate deploy
@@ -52,7 +52,7 @@ npx prisma db seed
 pnpm add helmet @nestjs/throttler
 ```
 
-**Add rate limiting** to `src/backend/main.ts`:
+**Add rate limiting** to `apps/backend/main.ts`:
 ```typescript
 import helmet from 'helmet';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -71,7 +71,7 @@ ThrottlerModule.forRoot([{
 
 ```bash
 # Build backend
-cd src/backend
+cd apps/backend
 pnpm build
 
 # Build frontend
@@ -188,11 +188,11 @@ RUN npm install -g pnpm
 RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN cd src/backend && pnpm build
+RUN cd apps/backend && pnpm build
 
 EXPOSE 3000
 
-CMD ["node", "src/backend/dist/main.js"]
+CMD ["node", "apps/backend/dist/main.js"]
 ```
 
 **2. Create docker-compose.yml:**

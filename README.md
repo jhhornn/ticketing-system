@@ -13,7 +13,7 @@ A high-performance, production-ready ticketing system built with NestJS and Reac
 - ✅ **SQL Injection Prevention**: Prisma ORM with prepared statements
 - ✅ **HttpOnly Cookie Support**: Infrastructure ready for secure token storage
 
-📖 **Full Security Audit**: See [docs/SECURITY-AUDIT-FIXES.md](docs/SECURITY-AUDIT-FIXES.md) for complete details.
+📖 **Full Security Audit**: See [docs/security.md](docs/security.md) for complete details.
 
 ---
 
@@ -32,7 +32,7 @@ cp .env.example .env
 docker-compose up -d
 
 # 4. Run database migrations
-cd src/backend
+cd apps/backend
 npx prisma migrate dev
 npx prisma generate
 cd ../..
@@ -146,7 +146,7 @@ pnpm dev
 
 ```
 ticketing-system/
-├── src/
+├── apps/
 │   ├── backend/          # NestJS backend application
 │   │   ├── api/          # Feature modules (auth, events, booking)
 │   │   ├── common/       # Shared utilities (database, redis, locks)
@@ -158,6 +158,7 @@ ticketing-system/
 │       ├── services/     # API client services
 │       └── context/      # React context providers
 │
+├── packages/             # Shared internal packages (optional)
 ├── docs/                 # Comprehensive documentation
 ├── .env.example          # Environment variables template
 └── pnpm-workspace.yaml   # Monorepo configuration
@@ -367,7 +368,7 @@ rm -rf node_modules pnpm-lock.yaml
 pnpm install
 
 # Clear Vite cache
-rm -rf src/frontend/.vite
+rm -rf apps/frontend/.vite
 
 # Rebuild
 pnpm build
@@ -376,7 +377,7 @@ pnpm build
 #### Prisma Migration Issues
 ```bash
 # Reset database (WARNING: deletes all data)
-cd src/backend
+cd apps/backend
 npx prisma migrate reset
 
 # Generate Prisma client
@@ -401,10 +402,10 @@ If backend memory usage grows continuously:
 
 ```bash
 # Profile with Node.js inspector
-node --inspect src/backend/main.ts
+node --inspect apps/backend/main.ts
 
 # Monitor memory
-node --max-old-space-size=4096 src/backend/main.ts
+node --max-old-space-size=4096 apps/backend/main.ts
 
 # Check for leaked intervals/timeouts
 ```

@@ -2,19 +2,24 @@
   "name": "ticketing-system-monorepo",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
   "scripts": {
-    "dev": "pnpm --parallel --filter \"./src/*\" dev",
-    "dev:backend": "pnpm --filter backend dev",
-    "dev:frontend": "pnpm --filter frontend dev",
-    "build": "pnpm --filter backend build && pnpm --filter frontend build",
-    "build:backend": "pnpm --filter backend build",
-    "build:frontend": "pnpm --filter frontend build",
-    "start": "pnpm --filter backend start",
-    "start:prod": "pnpm --filter backend start:prod",
-    "prisma:generate": "pnpm --filter backend prisma:generate",
-    "prisma:migrate": "pnpm --filter backend prisma:migrate",
-    "prisma:migrate:reset": "pnpm --filter backend prisma:migrate:reset",
-    "prisma:studio": "pnpm --filter backend prisma:studio"
+    "dev": "pnpm --parallel --filter \"@ticketing/*\" dev",
+    "dev:backend": "pnpm --filter @ticketing/backend dev",
+    "dev:frontend": "pnpm --filter @ticketing/frontend dev",
+    "build": "pnpm --filter @ticketing/backend build && pnpm --filter @ticketing/frontend build",
+    "build:backend": "pnpm --filter @ticketing/backend build",
+    "build:frontend": "pnpm --filter @ticketing/frontend build",
+    "start": "pnpm --filter @ticketing/backend start",
+    "start:prod": "pnpm --filter @ticketing/backend start:prod",
+    "prisma:generate": "pnpm --filter @ticketing/backend prisma:generate",
+    "prisma:migrate": "pnpm --filter @ticketing/backend prisma:migrate",
+    "prisma:migrate:reset": "pnpm --filter @ticketing/backend prisma:migrate:reset",
+    "prisma:studio": "pnpm --filter @ticketing/backend prisma:studio"
   },
   "devDependencies": {
     "pnpm": "^9.0.0"

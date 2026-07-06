@@ -1,0 +1,31 @@
+# Observability Stack - Docker Compose
+#
+# WHY THIS STACK:
+# - Jaeger all-in-one for traces, metrics ingestion, and OTLP logs
+# - Single local service for observability during development
+#
+# OBSERVABILITY FLOW:
+# 1. App emits structured logs to stdout
+# 2. App exports telemetry via OTLP HTTP/gRPC
+# 3. Jaeger receives and visualizes telemetry
+
+version: '3.8'
+
+services:
+  # Jaeger: all-in-one observability backend for local development
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: ticketing-jaeger
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - observability
+    restart: unless-stopped
+
+networks:
+  observability:
+    driver: bridge

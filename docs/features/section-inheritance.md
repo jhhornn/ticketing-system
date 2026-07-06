@@ -24,7 +24,7 @@ Added `venue_id` column to `event_sections` table:
 
 ### 3. Backend Implementation
 
-**File**: `src/backend/api/sections/sections.service.ts`
+**File**: `apps/backend/api/sections/sections.service.ts`
 
 ```typescript
 // Only protect sections that were inherited from a registered venue
@@ -38,7 +38,7 @@ if (section.venueId) {
 
 ### 4. Frontend Updates
 
-**File**: `src/frontend/src/components/EventSectionsModal.tsx`
+**File**: `apps/frontend/src/components/EventSectionsModal.tsx`
 
 Updated the information banner to clearly explain:
 - Sections cannot be deleted after bookings have been made

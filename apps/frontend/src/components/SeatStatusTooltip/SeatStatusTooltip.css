@@ -1,0 +1,144 @@
+.seat-status-tooltip {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  max-width: 400px;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  background: white;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.seat-status-tooltip.tooltip-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.seat-status-tooltip.tooltip-hidden {
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+}
+
+/* Severity styles */
+.seat-status-tooltip.tooltip-info {
+  border-left: 4px solid #2196F3;
+  background: #E3F2FD;
+}
+
+.seat-status-tooltip.tooltip-warning {
+  border-left: 4px solid #FF9800;
+  background: #FFF3E0;
+}
+
+.seat-status-tooltip.tooltip-error {
+  border-left: 4px solid #F44336;
+  background: #FFEBEE;
+}
+
+/* Header */
+.tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tooltip-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.tooltip-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: #212121;
+  margin: 0;
+}
+
+.tooltip-close {
+  background: none;
+  border: none;
+  color: #757575;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.tooltip-close:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Body */
+.tooltip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tooltip-message {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #424242;
+  margin: 0;
+}
+
+.tooltip-seat-number {
+  font-size: 12px;
+  font-weight: 500;
+  color: #616161;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  display: inline-block;
+  align-self: flex-start;
+}
+
+/* Info severity colors */
+.tooltip-info .tooltip-title {
+  color: #1565C0;
+}
+
+.tooltip-info .tooltip-message {
+  color: #1976D2;
+}
+
+/* Warning severity colors */
+.tooltip-warning .tooltip-title {
+  color: #E65100;
+}
+
+.tooltip-warning .tooltip-message {
+  color: #F57C00;
+}
+
+/* Error severity colors */
+.tooltip-error .tooltip-title {
+  color: #C62828;
+}
+
+.tooltip-error .tooltip-message {
+  color: #D32F2F;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 640px) {
+  .seat-status-tooltip {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+}

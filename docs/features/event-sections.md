@@ -6,7 +6,7 @@ When you create a new event through the UI, it doesn't automatically have ticket
 
 ### Option 1: Using Database Seed Script (Recommended for Development)
 
-Update the seed script at `src/backend/common/database/seed/seed.ts` to add sections for your event:
+Update the seed script at `apps/backend/common/database/seed/seed.ts` to add sections for your event:
 
 ```typescript
 // Example: Add sections for event ID 3

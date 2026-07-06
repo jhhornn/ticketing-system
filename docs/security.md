@@ -11,8 +11,8 @@
 **Issue:** JWT secret had fallback value `'fallback_secret'` allowing app to run with insecure secret  
 **Risk:** High - Anyone knowing the fallback could forge authentication tokens  
 **Fix:**
-- Removed fallback from [`jwt.strategy.ts`](src/backend/api/auth/strategies/jwt.strategy.ts)
-- Removed fallback from [`auth.module.ts`](src/backend/api/auth/auth.module.ts)
+- Removed fallback from [`jwt.strategy.ts`](apps/backend/api/auth/strategies/jwt.strategy.ts)
+- Removed fallback from [`auth.module.ts`](apps/backend/api/auth/auth.module.ts)
 - Application now **throws error on startup** if JWT_SECRET not set
 - Added validation in constructor to fail fast
 
@@ -27,7 +27,7 @@
 - Made CORS configurable via `CORS_ORIGINS` environment variable
 - Supports comma-separated list: `"https://app.com,https://www.app.com"`
 - Defaults to `localhost:5173` for development
-- Updated in [`main.ts`](src/backend/main.ts)
+- Updated in [`main.ts`](apps/backend/main.ts)
 
 **Usage:**
 ```bash
@@ -40,11 +40,11 @@ CORS_ORIGINS="https://yourdomain.com,https://www.yourdomain.com"
 **Issue:** Debug `console.log` statements throughout frontend code  
 **Risk:** Low - Exposes internal state and flow to browser console  
 **Fix:** Removed all debugging console.log from:
-- [`EventDetailsPage.tsx`](src/frontend/src/pages/Bookings/EventDetailsPage.tsx) - 3 logs removed
-- [`CheckoutPage.tsx`](src/frontend/src/pages/Bookings/CheckoutPage.tsx) - 3 logs removed
-- [`EventSectionsModal.tsx`](src/frontend/src/components/EventSectionsModal.tsx) - 6 logs removed
-- [`MyEventsPage.tsx`](src/frontend/src/pages/Events/MyEventsPage.tsx) - 2 logs removed
-- [`MyBookingsPage.tsx`](src/frontend/src/pages/Bookings/MyBookingsPage.tsx) - 4 logs removed
+- [`EventDetailsPage.tsx`](apps/frontend/src/pages/Bookings/EventDetailsPage.tsx) - 3 logs removed
+- [`CheckoutPage.tsx`](apps/frontend/src/pages/Bookings/CheckoutPage.tsx) - 3 logs removed
+- [`EventSectionsModal.tsx`](apps/frontend/src/components/EventSectionsModal.tsx) - 6 logs removed
+- [`MyEventsPage.tsx`](apps/frontend/src/pages/Events/MyEventsPage.tsx) - 2 logs removed
+- [`MyBookingsPage.tsx`](apps/frontend/src/pages/Bookings/MyBookingsPage.tsx) - 4 logs removed
 
 **Preserved:** Essential `console.error` statements for production debugging
 

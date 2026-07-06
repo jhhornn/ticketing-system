@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>{{PROJECT_NAME}} · Onboarding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+:root {
+  --bg:#07090f; --s1:#0d1117; --s2:#131920; --s3:#192030;
+  --border:#1e2d3d; --border2:#26384d;
+  --text:#cdd9e5; --text2:#8899aa; --text3:#4d6275;
+  --green:#3ddc97; --green-bg:rgba(61,220,151,.07);
+  --amber:#e8a84c; --coral:#f0647a; --violet:#9d7fe0;
+  --sky:#4db8f0; --slate:#6699bb;
+  --mono:'JetBrains Mono','Consolas',monospace;
+  --sans:'Inter',system-ui,sans-serif;
+  --nav:240px; --r:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.7;display:flex;min-height:100vh}
+::selection{background:rgba(61,220,151,.2);color:var(--text)}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* SIDEBAR */
+#sidebar{width:var(--nav);min-height:100vh;background:var(--s1);border-right:1px solid var(--border);position:fixed;top:0;left:0;display:flex;flex-direction:column;z-index:100;overflow-y:auto;padding-bottom:24px}
+.sb-brand{padding:24px 20px 20px;border-bottom:1px solid var(--border)}
+.sb-name{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--green);letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-tagline{font-size:11px;color:var(--text3);margin-top:4px}
+.sb-progress-wrap{padding:14px 20px 4px}
+.sb-progress-label{font-size:10px;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px;display:flex;justify-content:space-between}
+.sb-progress-bar{height:2px;background:var(--border2);border-radius:2px;overflow:hidden}
+.sb-progress-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--sky));width:0%;transition:width .4s ease}
+.sb-section-label{padding:16px 20px 4px;font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.1em;text-transform:uppercase}
+.sb-link{display:flex;align-items:center;gap:9px;padding:7px 20px;font-size:12.5px;color:var(--text2);cursor:pointer;border-left:2px solid transparent;text-decoration:none;transition:all .15s;user-select:none}
+.sb-link:hover{color:var(--text);background:var(--s2)}
+.sb-link.active{color:var(--green);border-left-color:var(--green);background:var(--green-bg)}
+.sb-link-icon{font-size:13px;flex-shrink:0;opacity:.65}
+.sb-link.active .sb-link-icon{opacity:1}
+.sb-footer{margin-top:auto;padding:16px 20px 0;border-top:1px solid var(--border);font-size:11px;color:var(--text3);line-height:1.6}
+
+/* MAIN */
+main{margin-left:var(--nav);flex:1;padding:0 56px 120px;max-width:calc(var(--nav) + 860px)}
+
+/* HERO */
+#overview{padding:64px 0 48px;border-bottom:1px solid var(--border);margin-bottom:60px}
+.hero-eyebrow{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--green);letter-spacing:.12em;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.hero-eyebrow::before{content:'';display:block;width:20px;height:1px;background:var(--green)}
+.hero-title{font-size:38px;font-weight:600;line-height:1.12;letter-spacing:-.8px;color:#e2eef8;margin-bottom:16px}
+.hero-title .accent{color:var(--green)}
+.hero-desc{font-size:15px;font-weight:300;color:var(--text2);max-width:540px;line-height:1.8;margin-bottom:28px}
+.chip-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:32px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:11px;font-family:var(--mono);font-weight:500;border:1px solid}
+.c-lang{color:var(--sky);border-color:rgba(77,184,240,.3);background:rgba(77,184,240,.07)}
+.c-fw{color:var(--green);border-color:rgba(61,220,151,.3);background:rgba(61,220,151,.07)}
+.c-db{color:var(--amber);border-color:rgba(232,168,76,.3);background:rgba(232,168,76,.07)}
+.c-infra{color:var(--violet);border-color:rgba(157,127,224,.3);background:rgba(157,127,224,.07)}
+.stat-row{display:flex;gap:40px;padding-top:28px;border-top:1px solid var(--border)}
+.stat-val{font-size:24px;font-weight:600;color:var(--text);font-family:var(--mono)}
+.stat-label{font-size:11px;color:var(--text3);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+
+/* SECTIONS */
+.section{margin-bottom:72px}
+.section-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.section-head h2{font-size:20px;font-weight:600;color:var(--text)}
+.section-icon{font-size:18px}
+.section-sub{font-size:13px;color:var(--text2);margin-bottom:24px;max-width:560px}
+
+/* ARCHITECTURE */
+#arch-canvas{position:relative;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;height:460px;user-select:none}
+#arch-canvas svg{width:100%;height:100%;display:block}
+#arch-canvas svg:active{cursor:grabbing}
+.arch-hint{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--text3);font-family:var(--mono);background:var(--s2);border:1px solid var(--border);padding:4px 12px;border-radius:20px;pointer-events:none;white-space:nowrap}
+#arch-panel{position:absolute;top:0;right:0;bottom:0;width:270px;background:var(--s2);border-left:1px solid var(--border);padding:20px 18px;overflow-y:auto;transform:translateX(100%);transition:transform .22s cubic-bezier(.4,0,.2,1)}
+#arch-panel.open{transform:translateX(0)}
+#arch-panel-close{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1;padding:4px;border-radius:4px;transition:color .15s}
+#arch-panel-close:hover{color:var(--text)}
+.panel-type{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.panel-name{font-size:16px;font-weight:600;color:var(--text);margin-bottom:10px}
+.panel-desc{font-size:13px;color:var(--text2);line-height:1.65;margin-bottom:14px}
+.panel-files-label{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.panel-files{list-style:none}
+.panel-files li{font-family:var(--mono);font-size:11.5px;color:var(--sky);padding:3px 0;border-bottom:1px solid var(--border)}
+.panel-files li:last-child{border-bottom:none}
+#arch-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3)}
+.leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+/* SERVICES */
+.services-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.svc-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:20px;cursor:pointer;transition:border-color .15s,transform .15s}
+.svc-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.svc-card.open{border-color:var(--green)}
+.svc-icon{font-size:22px;margin-bottom:10px}
+.svc-title{font-size:14px;font-weight:600;margin-bottom:4px}
+.svc-sum{font-size:12.5px;color:var(--text2);line-height:1.55}
+.svc-body{display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text2);line-height:1.6}
+.svc-body.open{display:block}
+.svc-files{margin-top:10px}
+.svc-file{display:block;font-family:var(--mono);font-size:11px;color:var(--sky);padding:2px 0}
+.svc-chevron{float:right;color:var(--text3);font-size:12px;transition:transform .2s;margin-top:2px}
+.svc-card.open .svc-chevron{transform:rotate(90deg)}
+
+/* TABS */
+.tab-strip{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto}
+.tab-btn{padding:9px 20px;font-size:13px;font-weight:500;color:var(--text2);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .15s}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+.ep-row{display:flex;align-items:flex-start;gap:16px;padding:11px 0;border-bottom:1px solid var(--border)}
+.ep-row:last-child{border-bottom:none}
+.ep-method{font-family:var(--mono);font-size:10.5px;font-weight:500;min-width:56px;padding-top:2px;letter-spacing:.03em}
+.m-GET{color:var(--green)} .m-POST{color:var(--amber)} .m-PUT{color:var(--violet)} .m-PATCH{color:var(--violet)} .m-DELETE{color:var(--coral)} .m-JOB{color:var(--sky)} .m-CMD{color:var(--slate)}
+.ep-path{font-family:var(--mono);font-size:13px;color:var(--text)}
+.ep-desc{font-size:12px;color:var(--text2);margin-top:2px}
+.ep-file{font-family:var(--mono);font-size:10.5px;color:var(--sky);margin-top:2px}
+
+/* DATA FLOW */
+.flow-scenario{font-size:13px;color:var(--text2);font-style:italic;margin-bottom:20px;padding:10px 14px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);border-left:3px solid var(--green)}
+.flow-stepper{display:flex;align-items:center;gap:0;margin-bottom:22px;overflow-x:auto;padding-bottom:4px}
+.flow-pill{flex-shrink:0;padding:5px 13px;border-radius:20px;font-size:11.5px;font-family:var(--mono);background:var(--s2);border:1px solid var(--border);color:var(--text2);cursor:pointer;transition:all .2s}
+.flow-pill.active{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+.flow-pill.done{background:rgba(61,220,151,.04);border-color:rgba(61,220,151,.3);color:rgba(61,220,151,.5)}
+.flow-arrow{color:var(--border2);padding:0 6px;font-size:14px;flex-shrink:0}
+.flow-detail{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:22px;min-height:130px}
+.flow-step-label{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--green);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.flow-step-desc{font-size:14px;color:var(--text);margin-bottom:14px;line-height:1.6}
+.flow-nav{display:flex;gap:8px;margin-top:16px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:var(--r);font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;font-family:var(--sans)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-primary{background:var(--green-bg);border-color:rgba(61,220,151,.4);color:var(--green)}
+.btn-primary:not(:disabled):hover{background:rgba(61,220,151,.14)}
+.btn-ghost{background:none;border-color:var(--border2);color:var(--text2)}
+.btn-ghost:not(:disabled):hover{color:var(--text)}
+
+/* CODE */
+.code-wrap{position:relative;margin:10px 0 2px}
+pre{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;font-family:var(--mono);font-size:12px;color:var(--text2);overflow-x:auto;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+.copy-btn{position:absolute;top:8px;right:8px;padding:3px 9px;font-size:10px;font-family:var(--mono);background:var(--s3);border:1px solid var(--border2);color:var(--text3);border-radius:4px;cursor:pointer;transition:all .15s}
+.copy-btn:hover{border-color:var(--green);color:var(--green)}
+.copy-btn.copied{color:var(--green);border-color:var(--green)}
+
+/* RULES */
+.tag-bar{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px}
+.tag-btn{padding:4px 12px;border-radius:20px;font-size:11.5px;font-weight:500;background:var(--s2);border:1px solid var(--border);color:var(--text2);cursor:pointer;transition:all .15s}
+.tag-btn:hover{border-color:var(--border2)}
+.tag-btn.active{background:var(--green-bg);border-color:rgba(61,220,151,.4);color:var(--green)}
+.rule-item{border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden;transition:border-color .15s}
+.rule-item:hover{border-color:var(--border2)}
+.rule-item.open{border-color:rgba(61,220,151,.3)}
+.rule-hd{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;cursor:pointer;background:var(--s1);gap:12px}
+.rule-hd:hover{background:var(--s2)}
+.rule-title{font-size:13.5px;font-weight:500;flex:1}
+.rule-tags{display:flex;gap:4px;flex-shrink:0}
+.rule-tag{padding:2px 8px;border-radius:10px;font-size:10px;background:var(--s3);color:var(--text3)}
+.rule-chevron{color:var(--text3);font-size:11px;transition:transform .2s;flex-shrink:0}
+.rule-item.open .rule-chevron{transform:rotate(90deg)}
+.rule-bd{display:none;padding:14px 16px;background:var(--bg);border-top:1px solid var(--border)}
+.rule-bd.open{display:block}
+.rule-why{font-size:13px;color:var(--text2);margin-bottom:10px;line-height:1.65}
+.rule-eg{font-family:var(--mono);font-size:11.5px;color:var(--sky)}
+
+/* TASKS */
+.task-item{border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden}
+.task-hd{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;cursor:pointer;background:var(--s1);gap:12px}
+.task-hd:hover{background:var(--s2)}
+.task-title{font-size:13.5px;font-weight:500}
+.task-bd{display:none;padding:18px 16px;background:var(--bg);border-top:1px solid var(--border)}
+.task-bd.open{display:block}
+.task-steps{list-style:none;counter-reset:step}
+.task-steps li{counter-increment:step;display:flex;gap:12px;margin-bottom:12px;font-size:13px;color:var(--text2);line-height:1.6;align-items:flex-start}
+.task-steps li::before{content:counter(step);min-width:22px;height:22px;border-radius:50%;background:var(--green-bg);border:1px solid rgba(61,220,151,.4);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--mono);margin-top:1px}
+
+/* GLOSSARY */
+#glossary-search{width:100%;padding:10px 16px;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:13.5px;margin-bottom:20px;outline:none;transition:border-color .15s}
+#glossary-search::placeholder{color:var(--text3)}
+#glossary-search:focus{border-color:rgba(61,220,151,.5)}
+.gl-item{padding:14px 0;border-bottom:1px solid var(--border)}
+.gl-item:last-child{border-bottom:none}
+.gl-term{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--green);margin-bottom:4px}
+.gl-def{font-size:13px;color:var(--text2);line-height:1.6}
+
+/* ANIMATION */
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .45s ease,transform .45s ease}
+.reveal.visible{opacity:1;transform:none}
+</style>
+</head>
+<body>
+
+<nav id="sidebar">
+  <div class="sb-brand">
+    <div class="sb-name">{{PROJECT_NAME}}</div>
+    <div class="sb-tagline">Developer Onboarding</div>
+  </div>
+  <div class="sb-progress-wrap">
+    <div class="sb-progress-label"><span>Progress</span><span id="prog-pct">0%</span></div>
+    <div class="sb-progress-bar"><div class="sb-progress-fill" id="prog-fill"></div></div>
+  </div>
+  <div class="sb-section-label">Getting Started</div>
+  <a class="sb-link" href="#overview">    <span class="sb-link-icon">🏠</span> Overview</a>
+  <a class="sb-link" href="#architecture"><span class="sb-link-icon">🗺️</span> Architecture</a>
+  <div class="sb-section-label">Codebase</div>
+  <a class="sb-link" href="#services">    <span class="sb-link-icon">⚙️</span> Services</a>
+  <a class="sb-link" href="#entrypoints"> <span class="sb-link-icon">🚪</span> Entry Points</a>
+  <a class="sb-link" href="#dataflow">    <span class="sb-link-icon">🔀</span> Data Flow</a>
+  <div class="sb-section-label">Working Here</div>
+  <a class="sb-link" href="#rules">   <span class="sb-link-icon">📐</span> Rules of Thumb</a>
+  <a class="sb-link" href="#tasks">   <span class="sb-link-icon">🛠️</span> Common Tasks</a>
+  <a class="sb-link" href="#glossary"><span class="sb-link-icon">📖</span> Glossary</a>
+  <div class="sb-footer">Generated by codebase-onboarding skill</div>
+</nav>
+
+<main>
+  <section id="overview" class="reveal">
+    <div class="hero-eyebrow">Developer Onboarding</div>
+    <h1 class="hero-title">Welcome to<br><span class="accent">{{PROJECT_NAME}}</span></h1>
+    <p class="hero-desc">{{PROJECT_DESCRIPTION}}</p>
+    <div class="chip-row" id="stack-chips"></div>
+    <div class="stat-row" id="stat-row"></div>
+  </section>
+
+  <section id="architecture" class="section reveal">
+    <div class="section-head"><span class="section-icon">🗺️</span><h2>Architecture</h2></div>
+    <p class="section-sub">Click any node to explore its role, responsibilities, and key files. Drag nodes to rearrange. Scroll to zoom.</p>
+    <div id="arch-canvas">
+      <svg id="arch-svg"></svg>
+      <div class="arch-hint">click a node · drag to rearrange · scroll to zoom</div>
+      <div id="arch-panel">
+        <button id="arch-panel-close" onclick="closePanel()">✕</button>
+        <div class="panel-type" id="p-type"></div>
+        <div class="panel-name" id="p-name"></div>
+        <div class="panel-desc" id="p-desc"></div>
+        <div class="panel-files-label">Key Files</div>
+        <ul class="panel-files" id="p-files"></ul>
+      </div>
+    </div>
+    <div id="arch-legend"></div>
+  </section>
+
+  <section id="services" class="section reveal">
+    <div class="section-head"><span class="section-icon">⚙️</span><h2>Services &amp; Components</h2></div>
+    <p class="section-sub">Click any card to expand its purpose, responsibilities, and source files.</p>
+    <div class="services-grid" id="services-grid"></div>
+  </section>
+
+  <section id="entrypoints" class="section reveal">
+    <div class="section-head"><span class="section-icon">🚪</span><h2>Entry Points</h2></div>
+    <p class="section-sub">Every way to trigger code in this system — HTTP routes, background jobs, and CLI commands.</p>
+    <div class="tab-strip" id="ep-tabs"></div>
+    <div id="ep-panes"></div>
+  </section>
+
+  <section id="dataflow" class="section reveal">
+    <div class="section-head"><span class="section-icon">🔀</span><h2>Data Flow</h2></div>
+    <p class="section-sub">A step-by-step walkthrough of a representative request through the system. Click any step or use the buttons.</p>
+    <div class="flow-scenario" id="flow-scenario"></div>
+    <div class="flow-stepper" id="flow-stepper"></div>
+    <div class="flow-detail">
+      <div class="flow-step-label" id="fs-label"></div>
+      <div class="flow-step-desc"  id="fs-desc"></div>
+      <div class="code-wrap">
+        <pre id="fs-code"></pre>
+        <button class="copy-btn" onclick="copyEl('fs-code',this)">copy</button>
+      </div>
+      <div class="flow-nav">
+        <button class="btn btn-ghost"   id="flow-prev" onclick="flowStep(-1)">← Back</button>
+        <button class="btn btn-primary" id="flow-next" onclick="flowStep(1)">Next →</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="rules" class="section reveal">
+    <div class="section-head"><span class="section-icon">📐</span><h2>Rules of Thumb</h2></div>
+    <p class="section-sub">Codebase-specific conventions derived from the actual patterns here. Filter by topic.</p>
+    <div class="tag-bar" id="tag-bar"></div>
+    <div id="rules-list"></div>
+  </section>
+
+  <section id="tasks" class="section reveal">
+    <div class="section-head"><span class="section-icon">🛠️</span><h2>Common Tasks</h2></div>
+    <p class="section-sub">Step-by-step guides for the things you'll do most in your first weeks.</p>
+    <div id="tasks-list"></div>
+  </section>
+
+  <section id="glossary" class="section reveal">
+    <div class="section-head"><span class="section-icon">📖</span><h2>Glossary</h2></div>
+    <p class="section-sub">Domain terms and internal jargon you'll encounter in this codebase.</p>
+    <input id="glossary-search" type="text" placeholder="Search terms and definitions…" oninput="filterGlossary(this.value)"/>
+    <div id="glossary-list"></div>
+  </section>
+</main>
+
+<script>
+// ═══════════════════════════════════════════
+// DATA — replace this entire block with real
+// codebase data. Keep variable names as-is.
+// ═══════════════════════════════════════════
+
+const PROJECT = {
+  name:        "{{PROJECT_NAME}}",
+  description: "{{PROJECT_DESCRIPTION}}",
+  stack: [
+    { label:"{{LANG}}",      cls:"c-lang"  },
+    { label:"{{FRAMEWORK}}", cls:"c-fw"    },
+    { label:"{{DATABASE}}",  cls:"c-db"    },
+    { label:"{{INFRA}}",     cls:"c-infra" },
+  ],
+  stats: [
+    { val:"{{SERVICES_COUNT}}", label:"Services"     },
+    { val:"{{FILES_COUNT}}",    label:"Source Files" },
+    { val:"{{LANG_LABEL}}",     label:"Language"     },
+  ],
+};
+
+// Node types: client | server | database | queue | worker | external
+const ARCH_NODES = [
+  { id:"client",  label:"Browser\nClient",  type:"client",   desc:"Web frontend served over HTTPS.",                          files:[] },
+  { id:"api",     label:"API Server",       type:"server",   desc:"Main application server. Handles all HTTP requests.",      files:["src/index.ts","src/routes/"] },
+  { id:"db",      label:"Postgres",         type:"database", desc:"Primary relational database.",                             files:["src/repositories/","prisma/schema.prisma"] },
+  { id:"cache",   label:"Redis",            type:"database", desc:"Session store and short-lived cache.",                     files:["src/lib/cache.ts"] },
+  { id:"queue",   label:"Job Queue",        type:"queue",    desc:"Async job processing via BullMQ.",                        files:["src/queues/"] },
+  { id:"worker",  label:"Workers",          type:"worker",   desc:"Background job processors — one class per job type.",     files:["src/workers/"] },
+  { id:"ext",     label:"External\nAPIs",   type:"external", desc:"Third-party integrations: Stripe, SendGrid, etc.",        files:[] },
+];
+const ARCH_LINKS = [
+  { source:"client", target:"api",    label:"HTTPS"   },
+  { source:"api",    target:"db",     label:"SQL"     },
+  { source:"api",    target:"cache",  label:"get/set" },
+  { source:"api",    target:"queue",  label:"enqueue" },
+  { source:"queue",  target:"worker", label:"consume" },
+  { source:"worker", target:"db",     label:"SQL"     },
+  { source:"worker", target:"ext",    label:"HTTP"    },
+];
+
+const SERVICES = [
+  { icon:"🌐", title:"API Server",       summary:"Handles all HTTP traffic, auth, validation, and response shaping.",                      detail:"Express-based. All routes mount through src/routes/index.ts. Auth is checked in middleware before any handler runs.",           files:["src/index.ts","src/routes/index.ts","src/middleware/auth.ts"] },
+  { icon:"🗄️", title:"Database Layer",  summary:"Postgres via Prisma ORM. All queries wrapped in Repository classes.",                    detail:"Never call prisma.* directly from a service — always use a Repository. Migrations live in prisma/migrations/.",              files:["src/repositories/","prisma/schema.prisma"] },
+  { icon:"⚡", title:"Background Jobs",  summary:"Async job processing via BullMQ. One worker class per job type.",                        detail:"Workers register in src/workers/index.ts. All workers must be idempotent. Failed jobs go to a dead-letter queue.",           files:["src/workers/","src/queues/"] },
+  { icon:"🔐", title:"Auth",             summary:"JWT-based auth with short-lived access tokens and rotating refresh tokens.",             detail:"Auth logic lives entirely in AuthService.ts. Tokens are validated in middleware. Never do auth inline in a route handler.",   files:["src/services/AuthService.ts","src/middleware/auth.ts"] },
+];
+
+const ENTRY_POINTS = {
+  "API Routes": [
+    { method:"GET",    path:"/api/health",      file:"src/routes/health.ts",   desc:"Health check" },
+    { method:"POST",   path:"/api/auth/login",  file:"src/routes/auth.ts",     desc:"Authenticate user; returns tokens" },
+    { method:"GET",    path:"/api/users/:id",   file:"src/routes/users.ts",    desc:"Fetch a user by ID" },
+    { method:"POST",   path:"/api/orders",      file:"src/routes/orders.ts",   desc:"Create a new order" },
+    { method:"DELETE", path:"/api/orders/:id",  file:"src/routes/orders.ts",   desc:"Cancel an order" },
+  ],
+  "Workers": [
+    { method:"JOB", path:"send-email",      file:"src/workers/EmailWorker.ts",   desc:"Send transactional email via SendGrid" },
+    { method:"JOB", path:"process-payment", file:"src/workers/PaymentWorker.ts", desc:"Charge via Stripe and update order status" },
+  ],
+  "CLI": [
+    { method:"CMD", path:"npm run migrate", file:"package.json",   desc:"Run pending Prisma migrations" },
+    { method:"CMD", path:"npm run seed",    file:"prisma/seed.ts", desc:"Seed database with dev fixtures" },
+    { method:"CMD", path:"npm run dev",     file:"package.json",   desc:"Start dev server with hot-reload" },
+  ],
+};
+
+const FLOW_SCENARIO = "Trace: a user submits a new order";
+const FLOW_STEPS = [
+  { nodeId:"client", label:"Step 1 · Client",        desc:"User submits the checkout form. Browser sends a POST with the order payload.",                               code:"fetch('/api/orders', {\n  method: 'POST',\n  headers: { Authorization: 'Bearer <token>' },\n  body: JSON.stringify({ items, shippingAddress }),\n})" },
+  { nodeId:"api",    label:"Step 2 · Auth Middleware",desc:"The request hits auth middleware first. JWT is verified; if invalid, 401 is returned immediately.",          code:"// src/middleware/auth.ts\nexport const authMiddleware = async (req, res, next) => {\n  const token = req.headers.authorization?.split(' ')[1];\n  req.user = await verifyJWT(token); // throws → 401\n  next();\n};" },
+  { nodeId:"api",    label:"Step 3 · Route Handler",  desc:"The handler validates req.body against CreateOrderSchema (Zod) then delegates to OrderService.",             code:"// src/routes/orders.ts\nrouter.post('/', authMiddleware, validate(CreateOrderSchema), createOrder);\nasync function createOrder(req, res) {\n  const order = await OrderService.create(req.user.id, req.body);\n  res.status(201).json(order);\n}" },
+  { nodeId:"db",     label:"Step 4 · Repository",     desc:"OrderService delegates to OrderRepository, which inserts the row inside a Prisma transaction.",              code:"// src/repositories/OrderRepository.ts\nstatic async create(userId, data) {\n  return prisma.$transaction(async (tx) => {\n    const order = await tx.order.create({ data: { userId, ...data } });\n    await tx.orderItem.createMany({ data: data.items.map(i => ({...i, orderId: order.id})) });\n    return order;\n  });\n}" },
+  { nodeId:"queue",  label:"Step 5 · Enqueue Job",    desc:"After the order is saved, a 'process-payment' job is enqueued asynchronously without blocking the response.", code:"// src/services/OrderService.ts\nawait paymentQueue.add('process-payment', {\n  orderId: order.id,\n  amount:  order.totalCents,\n});" },
+  { nodeId:"worker", label:"Step 6 · Worker",         desc:"PaymentWorker picks up the job, checks idempotency, calls Stripe, then updates order status.",               code:"// src/workers/PaymentWorker.ts\nasync process(job) {\n  const { orderId, amount } = job.data;\n  const order = await OrderRepository.findById(orderId);\n  if (order.status !== 'pending') return; // idempotency guard\n  await stripe.paymentIntents.create({ amount, currency: 'usd' });\n  await OrderRepository.updateStatus(orderId, 'paid');\n}" },
+  { nodeId:"client", label:"Step 7 · Response",       desc:"The HTTP 201 response was already sent in Step 3. The client shows the confirmation screen.",                code:"// HTTP 201 Created\n{\n  \"id\": \"ord_abc123\",\n  \"status\": \"pending\",\n  \"totalCents\": 4999,\n  \"createdAt\": \"2025-01-15T10:23:00Z\"\n}" },
+];
+
+const RULES = [
+  { title:"Database access only through Repository classes",         why:"Keeps all query logic in one place and testable in isolation. Services call repositories — never prisma.* directly.",                                                    example:"src/repositories/OrderRepository.ts",              tags:["database","architecture"] },
+  { title:"Wrap async route handlers with asyncHandler()",           why:"Without it, thrown errors in async functions bypass Express's error handler and silently crash the request.",                                                              example:"import { asyncHandler } from 'src/lib/errors'",     tags:["error-handling","api"] },
+  { title:"All background jobs must be idempotent",                  why:"Jobs are retried automatically on failure. If your worker doesn't guard against repeated execution, you'll double-charge customers or send duplicate emails.",            example:"See PaymentWorker.ts — checks order.status first",  tags:["workers","reliability"] },
+  { title:"Use the logger singleton — never console.log",            why:"Structured logs are required for our log aggregator. console.log is disabled by ESLint in src/.",                                                                         example:"import { logger } from 'src/lib/logger'",           tags:["logging","standards"] },
+  { title:"Read env vars only via config/index.ts",                  why:"All variables are validated and typed at startup. Direct process.env access bypasses this and causes silent production failures.",                                        example:"import { config } from 'src/config'",               tags:["config","standards"] },
+  { title:"Validate all external input with Zod schemas",            why:"Never trust req.body directly. Schemas live in src/schemas/ and are reused in unit tests for consistent validation.",                                                     example:"src/schemas/CreateOrderSchema.ts",                  tags:["validation","security"] },
+  { title:"Register new routes through src/routes/index.ts only",   why:"The index file is the single mounting point. Routes added elsewhere bypass global middleware including auth and rate limiting.",                                           example:"src/routes/index.ts",                               tags:["api","architecture"] },
+];
+
+const TASKS = [
+  { title:"Add a new API endpoint", steps:[
+    { text:"Create handler file: <code>src/routes/&lt;resource&gt;.ts</code>",      code:null },
+    { text:"Register it in the barrel:",                                              code:"// src/routes/index.ts\nrouter.use('/resource', require('./resource').default);" },
+    { text:"Add Zod schema: <code>src/schemas/&lt;Resource&gt;Schema.ts</code>",    code:null },
+    { text:"Write integration test: <code>tests/routes/&lt;resource&gt;.test.ts</code>", code:null },
+  ]},
+  { title:"Add a background job", steps:[
+    { text:"Create worker in <code>src/workers/&lt;JobName&gt;Worker.ts</code> extending <code>BaseWorker</code>", code:null },
+    { text:"Register it in <code>src/workers/index.ts</code>",                      code:null },
+    { text:"Enqueue from your service:",                                              code:"await myQueue.add('job-name', { ...payload });" },
+    { text:"Write a unit test covering success <em>and</em> the idempotency guard",  code:null },
+  ]},
+  { title:"Add a database migration", steps:[
+    { text:"Edit <code>prisma/schema.prisma</code>",                                 code:null },
+    { text:"Generate the migration:",                                                 code:"npx prisma migrate dev --name describe_your_change" },
+    { text:"Review the generated SQL in <code>prisma/migrations/</code>",            code:null },
+    { text:"Migrations run automatically on deploy — no manual step needed",         code:null },
+  ]},
+  { title:"Add a new environment variable", steps:[
+    { text:"Add to <code>.env.example</code> with a descriptive comment",            code:null },
+    { text:"Validate and export in <code>src/config/index.ts</code>:",               code:"export const config = {\n  stripeKey: z.string().parse(process.env.STRIPE_SECRET_KEY),\n};" },
+    { text:"Add the secret to all deployment environments (Staging + Production)",   code:null },
+  ]},
+];
+
+const GLOSSARY = [
+  { term:"Repository",        def:"A class that wraps all database queries for a single entity. Lives in src/repositories/. Must never be bypassed." },
+  { term:"Service",           def:"A class containing business logic. Calls repositories and external integrations. Lives in src/services/." },
+  { term:"Worker",            def:"A background job processor that consumes items from a queue. Lives in src/workers/. Must be idempotent." },
+  { term:"asyncHandler",      def:"A wrapper that forwards async errors to Express's error handler. Required on all async route handlers." },
+  { term:"Dead-letter Queue", def:"Where failed jobs land after exhausting retries. Inspect via the BullMQ dashboard." },
+  { term:"Schema",            def:"A Zod validation object defining the shape of an API input. Lives in src/schemas/." },
+];
+
+// ═══════════════════════════════════════════
+// RENDER ENGINE — do not modify below
+// ═══════════════════════════════════════════
+
+// Hero
+document.getElementById('stack-chips').innerHTML = PROJECT.stack.map(s=>`<span class="chip ${s.cls}">${s.label}</span>`).join('');
+document.getElementById('stat-row').innerHTML = PROJECT.stats.map(s=>`<div class="stat"><div class="stat-val">${s.val}</div><div class="stat-label">${s.label}</div></div>`).join('');
+
+// Architecture
+const typeColor = { client:'#4db8f0', server:'#3ddc97', database:'#e8a84c', queue:'#9d7fe0', worker:'#6699bb', external:'#f0647a' };
+document.getElementById('arch-legend').innerHTML = Object.entries(typeColor).map(([t,c])=>`<div class="leg"><div class="leg-dot" style="background:${c}"></div>${t}</div>`).join('');
+
+const svgEl = document.getElementById('arch-svg');
+const W = svgEl.parentElement.offsetWidth, H = 460;
+const ns = 'http://www.w3.org/2000/svg';
+const defs = document.createElementNS(ns,'defs');
+defs.innerHTML = `<marker id="arr" viewBox="0 -5 10 10" refX="22" refY="0" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,-5L10,0L0,5" fill="#1e2d3d"/></marker>`;
+svgEl.appendChild(defs);
+const svg = d3.select('#arch-svg').attr('viewBox',`0 0 ${W} ${H}`);
+const nodes = ARCH_NODES.map(n=>({...n})), links = ARCH_LINKS.map(l=>({...l}));
+const sim = d3.forceSimulation(nodes)
+  .force('link',    d3.forceLink(links).id(d=>d.id).distance(140))
+  .force('charge',  d3.forceManyBody().strength(-520))
+  .force('center',  d3.forceCenter(W/2,H/2))
+  .force('collide', d3.forceCollide(58));
+const linkG = svg.append('g'), nodeG = svg.append('g');
+const linkSel = linkG.selectAll('line').data(links).enter().append('line')
+  .attr('stroke','#1e2d3d').attr('stroke-width',1.5).attr('marker-end','url(#arr)');
+const linkLbl = linkG.selectAll('text').data(links).enter().append('text')
+  .attr('fill','#2e4560').attr('font-size','9.5px').attr('font-family','JetBrains Mono,monospace').attr('text-anchor','middle').text(d=>d.label);
+const nodeSel = nodeG.selectAll('g').data(nodes).enter().append('g')
+  .style('cursor','pointer')
+  .call(d3.drag()
+    .on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y})
+    .on('drag', (e,d)=>{d.fx=e.x;d.fy=e.y})
+    .on('end',  (e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null}))
+  .on('click',(e,d)=>{e.stopPropagation();openPanel(d)});
+nodeSel.append('circle').attr('r',30).attr('fill',d=>`${typeColor[d.type]}12`).attr('stroke',d=>typeColor[d.type]).attr('stroke-width',1.5);
+nodeSel.each(function(d){
+  const t=d3.select(this).append('text').attr('text-anchor','middle').attr('fill',typeColor[d.type]).attr('font-size','10.5px').attr('font-family','JetBrains Mono,monospace').attr('font-weight','500');
+  d.label.split('\n').forEach((l,i)=>t.append('tspan').attr('x',0).attr('dy',i===0?`${-(d.label.split('\n').length-1)*7}px`:'14px').text(l));
+});
+const zoom=d3.zoom().scaleExtent([.3,3]).on('zoom',e=>{linkG.attr('transform',e.transform);nodeG.attr('transform',e.transform)});
+svg.call(zoom);
+svg.on('click',()=>closePanel());
+const cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+sim.on('tick',()=>{
+  linkSel.attr('x1',d=>cl(d.source.x,40,W-40)).attr('y1',d=>cl(d.source.y,40,H-40)).attr('x2',d=>cl(d.target.x,40,W-40)).attr('y2',d=>cl(d.target.y,40,H-40));
+  linkLbl.attr('x',d=>(cl(d.source.x,40,W-40)+cl(d.target.x,40,W-40))/2).attr('y',d=>(cl(d.source.y,40,H-40)+cl(d.target.y,40,H-40))/2-6);
+  nodeSel.attr('transform',d=>`translate(${cl(d.x,40,W-40)},${cl(d.y,40,H-40)})`);
+});
+function openPanel(d){
+  document.getElementById('p-type').textContent=d.type.toUpperCase();
+  document.getElementById('p-type').style.color=typeColor[d.type];
+  document.getElementById('p-name').textContent=d.label.replace('\n',' ');
+  document.getElementById('p-desc').textContent=d.desc;
+  document.getElementById('p-files').innerHTML=d.files.length?d.files.map(f=>`<li>${f}</li>`).join(''):'<li style="color:var(--text3)">—</li>';
+  document.getElementById('arch-panel').classList.add('open');
+  linkSel.attr('stroke',l=>(l.source.id===d.id||l.target.id===d.id)?typeColor[d.type]:'#1e2d3d').attr('stroke-width',l=>(l.source.id===d.id||l.target.id===d.id)?2.5:1.5);
+}
+function closePanel(){ document.getElementById('arch-panel').classList.remove('open'); linkSel.attr('stroke','#1e2d3d').attr('stroke-width',1.5); }
+
+// Services
+document.getElementById('services-grid').innerHTML=SERVICES.map(s=>`
+<div class="svc-card" onclick="this.classList.toggle('open');this.querySelector('.svc-body').classList.toggle('open')">
+  <div class="svc-icon">${s.icon}</div><span class="svc-chevron">›</span>
+  <div class="svc-title">${s.title}</div>
+  <div class="svc-sum">${s.summary}</div>
+  <div class="svc-body"><div style="margin-bottom:10px">${s.detail}</div><div class="svc-files">${s.files.map(f=>`<span class="svc-file">${f}</span>`).join('')}</div></div>
+</div>`).join('');
+
+// Entry points
+const epTabs=document.getElementById('ep-tabs'),epPanes=document.getElementById('ep-panes');
+Object.entries(ENTRY_POINTS).forEach(([cat,entries],i)=>{
+  const btn=document.createElement('button');
+  btn.className='tab-btn'+(i===0?' active':'');btn.textContent=cat;
+  btn.onclick=()=>{document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.getElementById('epp'+i).classList.add('active')};
+  epTabs.appendChild(btn);
+  const pane=document.createElement('div');pane.className='tab-pane'+(i===0?' active':'');pane.id='epp'+i;
+  pane.innerHTML=entries.map(e=>`<div class="ep-row"><span class="ep-method m-${e.method}">${e.method}</span><div><div class="ep-path">${e.path}</div><div class="ep-desc">${e.desc}</div><div class="ep-file">${e.file}</div></div></div>`).join('');
+  epPanes.appendChild(pane);
+});
+
+// Data flow
+let fi=0;
+document.getElementById('flow-scenario').textContent=FLOW_SCENARIO;
+function renderFlow(){
+  document.getElementById('flow-stepper').innerHTML=FLOW_STEPS.map((s,i)=>{
+    const c=i===fi?'active':i<fi?'done':'';
+    return (i<FLOW_STEPS.length-1)?`<div class="flow-pill ${c}" onclick="flowJump(${i})">${s.nodeId}</div><span class="flow-arrow">→</span>`:`<div class="flow-pill ${c}" onclick="flowJump(${i})">${s.nodeId}</div>`;
+  }).join('');
+  const s=FLOW_STEPS[fi];
+  document.getElementById('fs-label').textContent=s.label;
+  document.getElementById('fs-desc').textContent=s.desc;
+  document.getElementById('fs-code').textContent=s.code;
+  document.getElementById('flow-prev').disabled=fi===0;
+  document.getElementById('flow-next').textContent=fi===FLOW_STEPS.length-1?'Done ✓':'Next →';
+}
+function flowStep(d){fi=Math.max(0,Math.min(FLOW_STEPS.length-1,fi+d));renderFlow()}
+function flowJump(i){fi=i;renderFlow()}
+renderFlow();
+
+// Rules
+const allTags=[...new Set(RULES.flatMap(r=>r.tags))];
+let aTag=null;
+function renderRules(){
+  const f=aTag?RULES.filter(r=>r.tags.includes(aTag)):RULES;
+  document.getElementById('rules-list').innerHTML=f.map(r=>`
+<div class="rule-item" onclick="this.classList.toggle('open');this.querySelector('.rule-bd').classList.toggle('open')">
+  <div class="rule-hd"><div class="rule-title">${r.title}</div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0"><div class="rule-tags">${r.tags.map(t=>`<span class="rule-tag">${t}</span>`).join('')}</div><span class="rule-chevron">›</span></div></div>
+  <div class="rule-bd"><div class="rule-why">${r.why}</div><div class="rule-eg">${r.example}</div></div>
+</div>`).join('');
+}
+const tb=document.getElementById('tag-bar');
+const ab=document.createElement('button');ab.className='tag-btn active';ab.textContent='All';
+ab.onclick=()=>{aTag=null;renderRules();document.querySelectorAll('.tag-btn').forEach(b=>b.classList.remove('active'));ab.classList.add('active')};
+tb.appendChild(ab);
+allTags.forEach(tag=>{const b=document.createElement('button');b.className='tag-btn';b.textContent=tag;b.onclick=()=>{aTag=tag;renderRules();document.querySelectorAll('.tag-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active')};tb.appendChild(b)});
+renderRules();
+
+// Tasks
+document.getElementById('tasks-list').innerHTML=TASKS.map(t=>`
+<div class="task-item">
+  <div class="task-hd" onclick="const b=this.nextElementSibling;b.classList.toggle('open');this.querySelector('.rule-chevron').style.transform=b.classList.contains('open')?'rotate(90deg)':''">
+    <div class="task-title">${t.title}</div><span class="rule-chevron" style="flex-shrink:0">›</span>
+  </div>
+  <div class="task-bd"><ol class="task-steps">${t.steps.map(s=>`<li><div>${s.text}${s.code?`<div class="code-wrap" style="margin-top:8px"><pre>${esc(s.code)}</pre><button class="copy-btn" onclick="event.stopPropagation();copyTxt('${ea(s.code)}',this)">copy</button></div>`:''}</div></li>`).join('')}</ol></div>
+</div>`).join('');
+
+// Glossary
+function renderGlossary(q=''){
+  const f=q.toLowerCase();
+  document.getElementById('glossary-list').innerHTML=GLOSSARY.filter(g=>!f||g.term.toLowerCase().includes(f)||g.def.toLowerCase().includes(f)).map(g=>`<div class="gl-item"><div class="gl-term">${g.term}</div><div class="gl-def">${g.def}</div></div>`).join('');
+}
+function filterGlossary(v){renderGlossary(v)}
+renderGlossary();
+
+// Sidebar active
+const io=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){document.querySelectorAll('.sb-link').forEach(l=>l.classList.remove('active'));const l=document.querySelector(`.sb-link[href="#${e.target.id}"]`);if(l)l.classList.add('active')}}),{threshold:.25,rootMargin:'-10% 0px -60% 0px'});
+document.querySelectorAll('section[id]').forEach(s=>io.observe(s));
+
+// Progress
+window.addEventListener('scroll',()=>{const sc=document.documentElement.scrollTop||document.body.scrollTop;const tot=document.documentElement.scrollHeight-document.documentElement.clientHeight;const p=tot>0?Math.round(sc/tot*100):0;document.getElementById('prog-fill').style.width=p+'%';document.getElementById('prog-pct').textContent=p+'%'});
+
+// Reveal
+const ro=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible')}),{threshold:.08});
+document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+
+// Utilities
+function copyEl(id,btn){copyTxt(document.getElementById(id).textContent,btn)}
+function copyTxt(text,btn){navigator.clipboard.writeText(text).then(()=>{if(btn){const o=btn.textContent;btn.textContent='✓ copied';btn.classList.add('copied');setTimeout(()=>{btn.textContent=o;btn.classList.remove('copied')},1600)}}).catch(()=>{})}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function ea(s){return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n')}
+</script>
+</body>
+</html>

@@ -267,7 +267,7 @@ venueId: BigInt(venue.id) // ← Must be set!
 **Symptoms:** TypeScript errors about missing venueId property
 **Solution:**
 ```bash
-cd src/backend
+cd apps/backend
 npx prisma generate
 npx prisma migrate deploy
 ```
@@ -307,7 +307,7 @@ npx prisma migrate deploy
 If issues arise, rollback the migration:
 
 ```bash
-cd src/backend
+cd apps/backend
 
 # Revert the migration
 npx prisma migrate resolve --rolled-back 20260116221550_add_venue_id_to_sections
@@ -320,6 +320,6 @@ npx prisma generate
 ```
 
 Then restore the previous version of:
-- `src/backend/api/sections/sections.service.ts`
-- `src/frontend/src/components/EventSectionsModal.tsx`
-- `src/backend/common/database/prisma/schema.prisma`
+- `apps/backend/api/sections/sections.service.ts`
+- `apps/frontend/src/components/EventSectionsModal.tsx`
+- `apps/backend/common/database/prisma/schema.prisma`

@@ -112,7 +112,7 @@ POST /bookings/confirm
 
 ### Prerequisites
 1. Backend server running: `pnpm dev`
-2. Frontend dev server running: `cd src/frontend && pnpm dev`
+2. Frontend dev server running: `cd apps/frontend && pnpm dev`
 3. User account created and logged in
 
 ### Test Flow
