@@ -172,9 +172,11 @@ export const EventDetailsPage: React.FC = () => {
                 sectionId?: number;
                 quantity?: number;
                 seats?: Array<{ seatId: number; version: number }>;
+                sessionId?: string;
             } = {
                 sectionId: payload.sectionId,
-                quantity: payload.quantity
+                quantity: payload.quantity,
+                sessionId: crypto.randomUUID(),
             };
 
             if (payload.type === 'ASSIGNED' && payload.seatIds) {
@@ -184,10 +186,8 @@ export const EventDetailsPage: React.FC = () => {
                     seatId: s.id,
                     version: (s as { version?: number }).version || 0
                 }));
-                if (payload.type === 'ASSIGNED') {
-                    delete reservationData.sectionId;
-                    delete reservationData.quantity;
-                }
+                delete reservationData.sectionId;
+                delete reservationData.quantity;
             }
 
             const response = await ReservationsService.createReservation(

@@ -6,7 +6,9 @@ export interface SeatReservation {
 }
 
 export interface CreateReservationRequest {
-  seats: SeatReservation[];
+  seats?: SeatReservation[];
+  sectionId?: number;
+  quantity?: number;
   sessionId?: string;
 }
 

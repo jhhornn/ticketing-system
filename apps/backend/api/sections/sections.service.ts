@@ -43,6 +43,12 @@ export class SectionsService {
       throw new NotFoundException(`Event with ID ${eventId} not found`);
     }
 
+    if (!event.isFree && sectionData.price <= 0) {
+      throw new BadRequestException(
+        'Paid event sections must have a price greater than zero.',
+      );
+    }
+
     // SECURITY: Validate total capacity doesn't exceed event capacity
     await this.validateEventCapacity(eventId, sectionData.totalCapacity);
 
@@ -175,6 +181,22 @@ export class SectionsService {
       throw new NotFoundException(`Section with ID ${id} not found`);
     }
 
+    if (
+      updateSectionDto.price !== undefined &&
+      updateSectionDto.price <= 0
+    ) {
+      const event = await this.prisma.event.findUnique({
+        where: { id: section.eventId },
+        select: { isFree: true },
+      });
+
+      if (!event?.isFree) {
+        throw new BadRequestException(
+          'Paid event sections must have a price greater than zero.',
+        );
+      }
+    }
+
     // Prevent reducing capacity below allocated
     if (
       updateSectionDto.totalCapacity &&
@@ -201,6 +223,16 @@ export class SectionsService {
       where: { id },
       data: updateSectionDto,
     });
+
+    if (
+      updateSectionDto.price !== undefined &&
+      section.type === SectionType.ASSIGNED
+    ) {
+      await this.prisma.seat.updateMany({
+        where: { sectionId: section.id },
+        data: { price: updateSectionDto.price },
+      });
+    }
 
     // Audit log the update
     await this.auditLog.log({

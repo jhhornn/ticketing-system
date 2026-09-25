@@ -76,7 +76,7 @@ export class EventsService implements OnModuleInit {
           availableSeats: totalSeats,
           saleStartTime: dto.saleStartTime ? new Date(dto.saleStartTime) : null,
           isFree: dto.isFree || false,
-          status: EventStatus.UPCOMING,
+          status: EventStatus.DRAFT,
           createdBy: userId,
         },
         include: {
@@ -102,7 +102,7 @@ export class EventsService implements OnModuleInit {
               venueId: venue.id, // Mark as venue-inherited
               name: venueSection.name,
               type: venueSection.type,
-              price: 0, // Default price, can be updated later
+              price: dto.isFree ? 0 : (dto.ticketPrice ?? 0),
               totalCapacity: venueSection.totalCapacity,
               allocated: 0,
             },
@@ -119,7 +119,7 @@ export class EventsService implements OnModuleInit {
               Number(eventSection.id),
               venueSection.rows,
               venueSection.seatsPerRow,
-              0, // Default price
+              dto.isFree ? 0 : (dto.ticketPrice ?? 0),
             );
           }
         }
@@ -143,7 +143,7 @@ export class EventsService implements OnModuleInit {
         availableSeats: totalSeats,
         saleStartTime: dto.saleStartTime ? new Date(dto.saleStartTime) : null,
         isFree: dto.isFree || false,
-        status: EventStatus.UPCOMING,
+        status: EventStatus.DRAFT,
         createdBy: userId,
       },
       include: {
@@ -210,12 +210,10 @@ export class EventsService implements OnModuleInit {
     userId?: string,
     onlyOwned: boolean = false,
   ): Promise<EventResponseDto[]> {
-    let whereClause = {};
-
-    // If filtering for owned events only
-    if (onlyOwned && userId) {
-      whereClause = { createdBy: userId };
-    }
+    const whereClause =
+      onlyOwned && userId
+        ? { createdBy: userId }
+        : { status: { not: EventStatus.DRAFT } };
 
     const events = await this.prisma.event.findMany({
       where: whereClause,
@@ -287,8 +285,7 @@ export class EventsService implements OnModuleInit {
 
     // Check if event status allows sales
     if (
-      event.status !== EventStatus.ON_SALE &&
-      event.status !== EventStatus.UPCOMING
+      event.status !== EventStatus.ON_SALE
     ) {
       return {
         canPurchase: false,
@@ -324,6 +321,14 @@ export class EventsService implements OnModuleInit {
     }
 
     const hasBookings = event.bookings.length > 0;
+
+    if (
+      dto.status !== undefined &&
+      [EventStatus.UPCOMING, EventStatus.ON_SALE].includes(dto.status) &&
+      event.status === EventStatus.DRAFT
+    ) {
+      this.validateEventIsReadyForSale(event, dto);
+    }
 
     // SECURITY: Protect existing bookings from breaking changes
     if (hasBookings) {
@@ -412,6 +417,40 @@ export class EventsService implements OnModuleInit {
     });
 
     return this.mapToDto(updatedEvent);
+  }
+
+  private validateEventIsReadyForSale(
+    event: Event & { eventSections: Array<{ price: unknown; totalCapacity: number }> },
+    dto: UpdateEventDto,
+  ): void {
+    const isFree = dto.isFree ?? event.isFree;
+
+    if (event.eventSections.length === 0) {
+      throw new BadRequestException(
+        'Add at least one ticket section before publishing this event.',
+      );
+    }
+
+    const configuredCapacity = event.eventSections.reduce(
+      (sum, section) => sum + section.totalCapacity,
+      0,
+    );
+    if (configuredCapacity <= 0) {
+      throw new BadRequestException(
+        'Configure ticket capacity before publishing this event.',
+      );
+    }
+
+    if (!isFree) {
+      const unpricedSection = event.eventSections.some(
+        (section) => Number(section.price) <= 0,
+      );
+      if (unpricedSection) {
+        throw new BadRequestException(
+          'Every section in a paid event must have a price greater than zero before publishing.',
+        );
+      }
+    }
   }
 
   /**
@@ -569,7 +608,13 @@ export class EventsService implements OnModuleInit {
       await this.prisma.event.updateMany({
         where: {
           eventDate: { lt: now },
-          status: { notIn: [EventStatus.CANCELLED, EventStatus.SOLD_OUT] },
+          status: {
+            notIn: [
+              EventStatus.DRAFT,
+              EventStatus.CANCELLED,
+              EventStatus.SOLD_OUT,
+            ],
+          },
         },
         data: {
           status: EventStatus.COMPLETED,
