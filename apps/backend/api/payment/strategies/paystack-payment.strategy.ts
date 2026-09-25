@@ -9,8 +9,10 @@ import {
   RefundResponse,
   PaymentStatus,
 } from './payment-strategy.interface';
+import { PrismaService } from '../../../common/database/prisma.service.js';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
+const DEFAULT_CALLBACK_URL = 'http://localhost:5173/payment/verify';
 
 /**
  * Convert major currency units to kobo (Paystack smallest unit).
@@ -136,8 +138,9 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
   private readonly logger = new Logger(PaystackPaymentStrategy.name);
   private readonly client: AxiosInstance;
   private readonly secretKey: string;
+  private readonly callbackUrl: string;
 
-  constructor() {
+  constructor(private readonly prisma: PrismaService) {
     const secretKey = process.env.PAYSTACK_SECRET_KEY;
     if (!secretKey) {
       this.logger.warn(
@@ -145,6 +148,8 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
       );
     }
     this.secretKey = secretKey ?? '';
+    this.callbackUrl =
+      process.env.PAYSTACK_CALLBACK_URL || DEFAULT_CALLBACK_URL;
 
     this.client = axios.create({
       baseURL: PAYSTACK_BASE_URL,
@@ -189,6 +194,7 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
           amount: toKobo(request.amount),
           currency: (request.currency ?? 'NGN').toUpperCase(),
           reference: request.idempotencyKey,
+          callback_url: this.callbackUrl,
           metadata: request.metadata,
         },
       );
@@ -348,11 +354,21 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
           `Payment successful — reference: ${event.data.reference}, amount: ${event.data.amount / 100} ${event.data.currency}`,
         );
         // TODO: update your order/booking status here
+        await this.updateBookingStatus(
+          event.data.reference,
+          'SUCCESS',
+          'CONFIRMED',
+        );
         break;
 
       case 'charge.failed':
         this.logger.warn(`Payment failed — reference: ${event.data.reference}`);
         // TODO: handle failed payment
+        await this.updateBookingStatus(
+          event.data.reference,
+          'FAILED',
+          'FAILED',
+        );
         break;
 
       case 'transfer.success':
@@ -368,6 +384,65 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
 
       default:
         this.logger.log(`Unhandled Paystack event: ${event.event}`);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Booking status updates (webhook-driven)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Update the booking record associated with a Paystack transaction reference.
+   *
+   * The `paymentId` column on the Booking table stores the Paystack reference
+   * that was returned from `processPayment`.
+   */
+  private async updateBookingStatus(
+    reference: string,
+    paymentStatus: 'SUCCESS' | 'FAILED',
+    bookingStatus: 'CONFIRMED' | 'FAILED',
+  ): Promise<void> {
+    try {
+      const booking = await this.prisma.booking.findFirst({
+        where: { paymentId: reference },
+      });
+
+      if (!booking) {
+        this.logger.warn(
+          `Webhook: No booking found for Paystack reference ${reference}`,
+        );
+        return;
+      }
+
+      if (
+        booking.paymentStatus === paymentStatus &&
+        booking.status === bookingStatus
+      ) {
+        this.logger.log(
+          `Webhook: Booking ${booking.bookingReference} already in desired state — skipping`,
+        );
+        return;
+      }
+
+      await this.prisma.booking.update({
+        where: { id: booking.id },
+        data: {
+          paymentStatus,
+          status: bookingStatus,
+          confirmedAt:
+            bookingStatus === 'CONFIRMED' ? new Date() : booking.confirmedAt,
+        },
+      });
+
+      this.logger.log(
+        `Webhook: Updated booking ${booking.bookingReference} → paymentStatus=${paymentStatus}, status=${bookingStatus}`,
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Webhook: Failed to update booking for reference ${reference}: ${message}`,
+      );
     }
   }
 

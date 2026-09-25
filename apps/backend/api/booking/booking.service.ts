@@ -222,7 +222,7 @@ export class BookingService {
           if (finalAmount > 0) {
             const paymentRequest = {
               amount: finalAmount,
-              currency: 'USD',
+              currency: 'NGN',
               userId,
               metadata: {
                 ...metadata,
