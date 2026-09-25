@@ -12,6 +12,7 @@ import { McpPage } from './pages/Mcp/McpPage';
 import { MyBookingsPage } from './pages/Bookings/MyBookingsPage';
 import { EventDetailsPage } from './pages/Bookings/EventDetailsPage';
 import { CheckoutPage } from './pages/Bookings/CheckoutPage';
+import { PaymentVerifyPage } from './pages/Bookings/PaymentVerifyPage';
 import { VenuesPage } from './pages/Venues/VenuesPage';
 import { ProfilePage } from './pages/Profile/ProfilePage';
 
@@ -29,6 +30,7 @@ function App() {
               <Route path="my-events" element={<MyEventsPage />} />
               <Route path="events/:id" element={<EventDetailsPage />} />
               <Route path="checkout" element={<CheckoutPage />} />
+              <Route path="payment/verify" element={<PaymentVerifyPage />} />
               <Route path="bookings" element={<MyBookingsPage />} />
               <Route path="venues" element={<VenuesPage />} />
 
