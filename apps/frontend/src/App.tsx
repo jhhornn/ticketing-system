@@ -8,7 +8,6 @@ import { DashboardPage } from './pages/Dashboard/DashboardPage';
 
 import { EventsPage } from './pages/Events/EventsPage';
 import { MyEventsPage } from './pages/Events/MyEventsPage';
-import { McpPage } from './pages/Mcp/McpPage';
 import { MyBookingsPage } from './pages/Bookings/MyBookingsPage';
 import { EventDetailsPage } from './pages/Bookings/EventDetailsPage';
 import { CheckoutPage } from './pages/Bookings/CheckoutPage';
@@ -34,9 +33,7 @@ function App() {
               <Route path="bookings" element={<MyBookingsPage />} />
               <Route path="venues" element={<VenuesPage />} />
 
-              <Route path="mcp" element={<McpPage />} />
               <Route path="profile" element={<ProfilePage />} />
-              <Route path="settings" element={<div>Settings Component</div>} />
             </Route>
           </Routes>
       </AppProviders>

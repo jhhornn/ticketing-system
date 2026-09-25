@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Ticket, MapPin, Cpu, Settings, LogOut, CalendarCheck, Menu, X, User } from 'lucide-react';
+import { LayoutDashboard, Calendar, Ticket, MapPin, LogOut, CalendarCheck, Menu, X, User } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 export const Sidebar: React.FC = () => {
@@ -15,9 +15,7 @@ export const Sidebar: React.FC = () => {
         { to: '/my-events', icon: CalendarCheck, label: 'My Events' },
         { to: '/bookings', icon: Ticket, label: 'My Bookings' },
         { to: '/venues', icon: MapPin, label: 'Venues' },
-        { to: '/mcp', icon: Cpu, label: 'MCP Tools' },
         { to: '/profile', icon: User, label: 'Profile' },
-        { to: '/settings', icon: Settings, label: 'Settings' },
     ];
 
     return (
