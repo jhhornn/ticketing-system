@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader2, AlertTriangle, ArrowRight } from 'lucide-react';
-import { PaymentsService, PaymentVerification } from '../../services/payments';
+import { PaymentsService } from '../../services/payments';
+import type { PaymentVerification } from '../../services/payments';
 
 type VerifyState = 'loading' | 'success' | 'failed' | 'error';
 
