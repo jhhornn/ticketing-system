@@ -108,7 +108,10 @@ export class BookingService {
       // Find all reservations in the same session (for multi-seat bookings)
       const reservations = await this.prisma.reservation.findMany({
         where: {
-          sessionId: reservation.sessionId,
+          ...(reservation.sessionId
+            ? { sessionId: reservation.sessionId }
+            : { id: reservation.id }),
+          eventId: reservation.eventId,
           userId,
           status: ReservationStatus.ACTIVE,
         },
@@ -165,7 +168,9 @@ export class BookingService {
           }
 
           if (totalAmount <= 0 && !reservation.event.isFree) {
-            // Valid free event check or error
+            throw new BadRequestException(
+              'This paid event has no valid ticket price. Please contact the event organizer.',
+            );
           }
 
           // Step 3.5: Apply discount if provided
