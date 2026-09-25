@@ -324,7 +324,8 @@ export class EventsService implements OnModuleInit {
 
     if (
       dto.status !== undefined &&
-      [EventStatus.UPCOMING, EventStatus.ON_SALE].includes(dto.status) &&
+      (dto.status === EventStatus.UPCOMING ||
+        dto.status === EventStatus.ON_SALE) &&
       event.status === EventStatus.DRAFT
     ) {
       this.validateEventIsReadyForSale(event, dto);
