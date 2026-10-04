@@ -9,10 +9,16 @@ import {
   ParseIntPipe,
   UseGuards,
   Req,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import type { IAuthenticatedRequest } from '../../common/interfaces/index.js';
+import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import {
+  type AuthRequestUser,
+  isAdminUser,
+} from '../auth/guards/auth-request.types.js';
 import { BookingService } from './booking.service.js';
 import {
   ConfirmBookingDto,
@@ -32,6 +38,8 @@ export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 
   @Post('confirm')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Confirm booking with payment',
@@ -67,11 +75,16 @@ Confirms a reservation by processing payment and creating a booking.
   @ApiConflictResponse('Duplicate idempotency key - booking already exists')
   async confirmBooking(
     @Body() confirmBookingDto: ConfirmBookingDto,
+    @CurrentUser() user: AuthRequestUser,
   ): Promise<BookingResponseDto> {
-    return this.bookingService.confirmBooking(confirmBookingDto);
+    // SECURITY: The booking owner is always the authenticated user, never the
+    // client-supplied userId.
+    return this.bookingService.confirmBooking(confirmBookingDto, user);
   }
 
   @Get('reference/:bookingReference')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get booking by reference',
     description: `
@@ -93,8 +106,9 @@ Retrieves booking details using the unique booking reference code.
   @ApiErrorResponses()
   async getBookingByReference(
     @Param('bookingReference') bookingReference: string,
+    @CurrentUser() user: AuthRequestUser,
   ): Promise<BookingResponseDto> {
-    return this.bookingService.getBookingByReference(bookingReference);
+    return this.bookingService.getBookingByReference(bookingReference, user);
   }
 
   @Get('me')
@@ -114,6 +128,8 @@ Retrieves booking details using the unique booking reference code.
   }
 
   @Get('user/:userId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get all bookings for a user',
     description: `
@@ -134,7 +150,13 @@ Retrieves all bookings for a specific user, ordered by creation date (newest fir
   @ApiErrorResponses()
   async getUserBookings(
     @Param('userId') userId: string,
+    @CurrentUser() user: AuthRequestUser,
   ): Promise<BookingResponseDto[]> {
+    if (userId !== user.id && !isAdminUser(user)) {
+      throw new ForbiddenException(
+        'You do not have permission to view these bookings',
+      );
+    }
     return this.bookingService.getUserBookings(userId);
   }
 

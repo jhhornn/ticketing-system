@@ -353,17 +353,16 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
         this.logger.log(
           `Payment successful — reference: ${event.data.reference}, amount: ${event.data.amount / 100} ${event.data.currency}`,
         );
-        // TODO: update your order/booking status here
         await this.updateBookingStatus(
           event.data.reference,
           'SUCCESS',
           'CONFIRMED',
+          { amount: event.data.amount, currency: event.data.currency },
         );
         break;
 
       case 'charge.failed':
         this.logger.warn(`Payment failed — reference: ${event.data.reference}`);
-        // TODO: handle failed payment
         await this.updateBookingStatus(
           event.data.reference,
           'FAILED',
@@ -401,6 +400,7 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
     reference: string,
     paymentStatus: 'SUCCESS' | 'FAILED',
     bookingStatus: 'CONFIRMED' | 'FAILED',
+    paid?: { amount: number; currency: string },
   ): Promise<void> {
     try {
       const booking = await this.prisma.booking.findFirst({
@@ -424,6 +424,28 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
         return;
       }
 
+      // SECURITY: Only PENDING bookings may transition. A late/replayed
+      // charge.failed must not cancel a confirmed booking, and a failed one
+      // must not be resurrected.
+      if (booking.status !== 'PENDING') {
+        this.logger.warn(
+          `Webhook: Booking ${booking.bookingReference} is ${booking.status}, ignoring transition to ${bookingStatus}`,
+        );
+        return;
+      }
+
+      // SECURITY: Confirm only if Paystack collected the full amount we charged
+      if (
+        paid &&
+        (paid.amount !== toKobo(Number(booking.totalAmount)) ||
+          paid.currency?.toUpperCase() !== 'NGN')
+      ) {
+        this.logger.error(
+          `Webhook: Amount mismatch for booking ${booking.bookingReference} — expected ${toKobo(Number(booking.totalAmount))} NGN (kobo), got ${paid.amount} ${paid.currency}`,
+        );
+        return;
+      }
+
       await this.prisma.booking.update({
         where: { id: booking.id },
         data: {
@@ -438,8 +460,7 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
         `Webhook: Updated booking ${booking.bookingReference} → paymentStatus=${paymentStatus}, status=${bookingStatus}`,
       );
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
         `Webhook: Failed to update booking for reference ${reference}: ${message}`,
       );
@@ -461,6 +482,7 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
       .update(rawBody)
       .digest('hex');
     const expectedBuf = Buffer.from(expected, 'hex');
+    if (!/^[0-9a-f]+$/i.test(signature)) return false;
     const signatureBuf = Buffer.from(signature, 'hex');
     if (expectedBuf.length !== signatureBuf.length) return false;
     return crypto.timingSafeEqual(expectedBuf, signatureBuf);

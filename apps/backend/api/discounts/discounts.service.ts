@@ -9,6 +9,12 @@ import { CreateDiscountDto } from './dto/create-discount.dto.js';
 import { UpdateDiscountDto } from './dto/update-discount.dto.js';
 import { DiscountResponseDto } from './dto/discount-response.dto.js';
 import { Discount } from '@prisma/client';
+import {
+  type AuthRequestUser,
+  isAdminUser,
+} from '../auth/guards/auth-request.types.js';
+
+type DiscountActor = Pick<AuthRequestUser, 'id' | 'role'>;
 
 @Injectable()
 export class DiscountsService {
@@ -16,30 +22,63 @@ export class DiscountsService {
 
   private async verifyEventOwnership(
     eventId: number,
-    userId: string,
+    user: DiscountActor,
   ): Promise<void> {
-    const event = await this.prisma.event.findFirst({
-      where: {
-        id: BigInt(eventId),
-        createdBy: userId,
-      },
+    if (isAdminUser(user)) {
+      return;
+    }
+
+    const event = await this.prisma.event.findUnique({
+      where: { id: BigInt(eventId) },
+      select: { createdBy: true },
     });
 
-    if (!event) {
+    // SECURITY: Compare explicitly — a Prisma filter with an undefined value
+    // silently matches every row.
+    if (!event || !user.id || event.createdBy !== user.id) {
       throw new ForbiddenException(
         'You do not have permission to manage discounts for this event',
       );
     }
   }
 
+  /**
+   * Event-scoped discounts require event ownership; global discounts (no
+   * eventId) apply to every event and are restricted to admins.
+   */
+  private async verifyDiscountAccess(
+    eventId: bigint | number | null | undefined,
+    user: DiscountActor,
+  ): Promise<void> {
+    if (eventId) {
+      await this.verifyEventOwnership(Number(eventId), user);
+      return;
+    }
+
+    if (!isAdminUser(user)) {
+      throw new ForbiddenException(
+        'Only administrators can manage global discounts',
+      );
+    }
+  }
+
+  private async findExistingOrThrow(id: number): Promise<Discount> {
+    const discount = await this.prisma.discount.findFirst({
+      where: { id: BigInt(id) },
+    });
+
+    if (!discount) {
+      throw new NotFoundException(`Discount with ID ${id} not found`);
+    }
+
+    return discount;
+  }
+
   async create(
     createDiscountDto: CreateDiscountDto,
-    userId: string,
+    user: DiscountActor,
   ): Promise<DiscountResponseDto> {
-    // Verify event ownership if eventId is provided
-    if (createDiscountDto.eventId) {
-      await this.verifyEventOwnership(createDiscountDto.eventId, userId);
-    }
+    await this.verifyDiscountAccess(createDiscountDto.eventId, user);
 
     // Check if code already exists
     const existing = await this.prisma.discount.findFirst({
@@ -81,16 +120,9 @@ export class DiscountsService {
     return discounts.map((d) => this.mapToDto(d));
   }
 
-  async findOne(id: number): Promise<DiscountResponseDto> {
-    const discount = await this.prisma.discount.findFirst({
-      where: {
-        id: BigInt(id),
-      },
-    });
-
-    if (!discount) {
-      throw new NotFoundException(`Discount with ID ${id} not found`);
-    }
+  async findOne(id: number, user: DiscountActor): Promise<DiscountResponseDto> {
+    const discount = await this.findExistingOrThrow(id);
+    await this.verifyDiscountAccess(discount.eventId, user);
 
     return this.mapToDto(discount);
   }
@@ -98,19 +130,14 @@ export class DiscountsService {
   async update(
     id: number,
     updateDiscountDto: UpdateDiscountDto,
-    userId: string,
+    user: DiscountActor,
   ): Promise<DiscountResponseDto> {
-    const existing = await this.prisma.discount.findFirst({
-      where: { id: BigInt(id) },
-    });
+    const existing = await this.findExistingOrThrow(id);
+    await this.verifyDiscountAccess(existing.eventId, user);
 
-    if (!existing) {
-      throw new NotFoundException(`Discount with ID ${id} not found`);
-    }
-
-    // Verify event ownership
-    if (existing.eventId) {
-      await this.verifyEventOwnership(Number(existing.eventId), userId);
+    // Moving a discount to another event requires owning that event too
+    if (updateDiscountDto.eventId) {
+      await this.verifyEventOwnership(updateDiscountDto.eventId, user);
     }
 
     const discount = await this.prisma.discount.update({
@@ -136,38 +163,21 @@ export class DiscountsService {
     return this.mapToDto(discount);
   }
 
-  async remove(id: number, userId: string): Promise<void> {
-    const discount = await this.prisma.discount.findFirst({
-      where: { id: BigInt(id) },
-    });
-
-    if (!discount) {
-      throw new NotFoundException(`Discount with ID ${id} not found`);
-    }
-
-    // Verify event ownership
-    if (discount.eventId) {
-      await this.verifyEventOwnership(Number(discount.eventId), userId);
-    }
+  async remove(id: number, user: DiscountActor): Promise<void> {
+    const discount = await this.findExistingOrThrow(id);
+    await this.verifyDiscountAccess(discount.eventId, user);
 
     await this.prisma.discount.delete({
       where: { id: BigInt(id) },
     });
   }
 
-  async activate(id: number, userId: string): Promise<DiscountResponseDto> {
-    const discount = await this.prisma.discount.findFirst({
-      where: { id: BigInt(id) },
-    });
-
-    if (!discount) {
-      throw new NotFoundException(`Discount with ID ${id} not found`);
-    }
-
-    // Verify event ownership
-    if (discount.eventId) {
-      await this.verifyEventOwnership(Number(discount.eventId), userId);
-    }
+  async activate(
+    id: number,
+    user: DiscountActor,
+  ): Promise<DiscountResponseDto> {
+    const discount = await this.findExistingOrThrow(id);
+    await this.verifyDiscountAccess(discount.eventId, user);
 
     const updated = await this.prisma.discount.update({
       where: { id: BigInt(id) },
@@ -177,19 +187,12 @@ export class DiscountsService {
     return this.mapToDto(updated);
   }
 
-  async deactivate(id: number, userId: string): Promise<DiscountResponseDto> {
-    const discount = await this.prisma.discount.findFirst({
-      where: { id: BigInt(id) },
-    });
-
-    if (!discount) {
-      throw new NotFoundException(`Discount with ID ${id} not found`);
-    }
-
-    // Verify event ownership
-    if (discount.eventId) {
-      await this.verifyEventOwnership(Number(discount.eventId), userId);
-    }
+  async deactivate(
+    id: number,
+    user: DiscountActor,
+  ): Promise<DiscountResponseDto> {
+    const discount = await this.findExistingOrThrow(id);
+    await this.verifyDiscountAccess(discount.eventId, user);
 
     const updated = await this.prisma.discount.update({
       where: { id: BigInt(id) },
@@ -199,7 +202,12 @@ export class DiscountsService {
     return this.mapToDto(updated);
   }
 
-  async findByEventId(eventId: number): Promise<DiscountResponseDto[]> {
+  async findByEventId(
+    eventId: number,
+    user: DiscountActor,
+  ): Promise<DiscountResponseDto[]> {
+    await this.verifyEventOwnership(eventId, user);
+
     const discounts = await this.prisma.discount.findMany({
       where: {
         eventId: BigInt(eventId),

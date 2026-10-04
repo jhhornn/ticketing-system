@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   ParseIntPipe,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ReservationService } from './reservation.service.js';
@@ -25,6 +26,11 @@ import {
   ApiConflictResponse,
 } from '../../common/decorators/api-response.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import {
+  type AuthRequestUser,
+  isAdminUser,
+} from '../auth/guards/auth-request.types.js';
 
 @ApiTags('Reservations')
 @Controller('events/:eventId/reservations')
@@ -118,12 +124,13 @@ Cancels an active reservation and releases the seats back to available pool.
   @ApiErrorResponses()
   async cancelReservation(
     @Param('id') reservationId: string,
-    @Body() cancelDto: CancelReservationDto,
+    // Body is accepted for backwards compatibility; its userId is ignored.
+    @Body() _cancelDto: CancelReservationDto,
+    @CurrentUser() user: AuthRequestUser,
   ): Promise<null> {
-    await this.reservationService.cancelReservation(
-      reservationId,
-      cancelDto.userId,
-    );
+    // SECURITY: Ownership is checked against the authenticated user, never a
+    // client-supplied userId.
+    await this.reservationService.cancelReservation(reservationId, user.id);
     return null;
   }
 
@@ -157,7 +164,13 @@ Retrieves all active (non-expired) reservations for a user.
   @ApiErrorResponses()
   async getUserReservations(
     @Param('userId') userId: string,
+    @CurrentUser() user: AuthRequestUser,
   ): Promise<ReservationResponseDto[]> {
+    if (userId !== user.id && !isAdminUser(user)) {
+      throw new ForbiddenException(
+        'You do not have permission to view these reservations',
+      );
+    }
     return this.reservationService.getUserReservations(userId);
   }
 }

@@ -4,7 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
-  // ConflictException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/database/prisma.service.js';
 import { LockingService } from '../../common/locks/locking.service.js';
@@ -19,6 +19,10 @@ import {
   SeatStatus,
 } from '../../common/enums/index.js';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  type AuthRequestUser,
+  isAdminUser,
+} from '../auth/guards/auth-request.types.js';
 import {
   BOOKING_IDEMPOTENCY_TTL_HOURS,
   BOOKING_MESSAGES,
@@ -40,18 +44,21 @@ export class BookingService {
    * Confirm booking with payment (with idempotency)
    * Implements saga pattern for rollback on failure
    */
-  async confirmBooking(dto: ConfirmBookingDto): Promise<BookingResponseDto> {
+  async confirmBooking(
+    dto: ConfirmBookingDto,
+    user: Pick<AuthRequestUser, 'id' | 'email'>,
+  ): Promise<BookingResponseDto> {
     const {
       reservationId,
-      userId,
       paymentMethod,
       idempotencyKey,
       discountCode,
       metadata,
     } = dto;
+    const userId = user.id;
 
     // Check idempotency first
-    const existingBooking = await this.checkIdempotency(idempotencyKey);
+    const existingBooking = await this.checkIdempotency(idempotencyKey, userId);
     if (existingBooking) {
       this.logger.log(
         `Returning existing booking for idempotency key: ${idempotencyKey}`,
@@ -226,6 +233,8 @@ export class BookingService {
               userId,
               metadata: {
                 ...metadata,
+                // SECURITY: Receipt email comes from the account, not the client
+                email: user.email,
                 reservationId,
                 eventId: Number(reservation.eventId),
                 discountCode: appliedDiscountCode,
@@ -368,7 +377,12 @@ export class BookingService {
             seatNumbers,
           );
 
-          await this.storeIdempotency(idempotencyKey, dto, response, 200);
+          await this.storeIdempotency(
+            idempotencyKey,
+            { ...dto, userId },
+            response,
+            200,
+          );
 
           this.logger.log(
             `Booking confirmed: ${bookingReference} (Payment: ${paymentId})`,
@@ -436,6 +450,7 @@ export class BookingService {
    */
   async getBookingByReference(
     bookingReference: string,
+    user: Pick<AuthRequestUser, 'id' | 'role'>,
   ): Promise<BookingResponseDto> {
     const booking = await this.prisma.booking.findUnique({
       where: { bookingReference },
@@ -445,10 +460,20 @@ export class BookingService {
             seat: true,
           },
         },
+        event: {
+          select: { createdBy: true },
+        },
       },
     });
 
-    if (!booking) {
+    // SECURITY: Only the booking owner, the event organizer or an admin may
+    // view a booking. Respond with 404 to avoid confirming the reference exists.
+    if (
+      !booking ||
+      (booking.userId !== user.id &&
+        booking.event.createdBy !== user.id &&
+        !isAdminUser(user))
+    ) {
       throw new NotFoundException(BOOKING_MESSAGES.bookingNotFound);
     }
 
@@ -504,6 +529,7 @@ export class BookingService {
    */
   private async checkIdempotency(
     key: string,
+    userId: string,
   ): Promise<BookingResponseDto | null> {
     const record = await this.prisma.idempotencyKey.findUnique({
       where: { key },
@@ -516,6 +542,14 @@ export class BookingService {
     // Check if expired
     if (record.expiresAt < new Date()) {
       return null;
+    }
+
+    // SECURITY: Never replay another user's booking for a reused/guessed key
+    const storedRequest = JSON.parse(record.request || '{}') as {
+      userId?: string;
+    };
+    if (storedRequest.userId !== userId) {
+      throw new ConflictException('Idempotency key has already been used');
     }
 
     // Return cached response

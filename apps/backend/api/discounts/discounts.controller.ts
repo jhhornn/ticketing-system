@@ -10,7 +10,6 @@ import {
   Query,
   // HttpStatus,
   ParseIntPipe,
-  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,6 +23,9 @@ import { CreateDiscountDto } from './dto/create-discount.dto.js';
 import { UpdateDiscountDto } from './dto/update-discount.dto.js';
 import { DiscountResponseDto } from './dto/discount-response.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { SuperAdminGuard } from '../auth/guards/super-admin.guard.js';
+import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import type { AuthRequestUser } from '../auth/guards/auth-request.types.js';
 
 @ApiTags('Discounts')
 @Controller('discounts')
@@ -41,13 +43,15 @@ export class DiscountsController {
   })
   async create(
     @Body() createDiscountDto: CreateDiscountDto,
-    @Request() req: { user: { userId: string } },
+    @CurrentUser() user: AuthRequestUser,
   ): Promise<DiscountResponseDto> {
-    return this.discountsService.create(createDiscountDto, req.user.userId);
+    return this.discountsService.create(createDiscountDto, user);
   }
 
   @Get()
-  @ApiOperation({ summary: 'List all discounts' })
+  @UseGuards(JwtAuthGuard, SuperAdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List all discounts (Super Admin only)' })
   @ApiResponse({
     status: 200,
     description: 'List of all discounts.',
@@ -58,7 +62,9 @@ export class DiscountsController {
   }
 
   @Get('event/:eventId')
-  @ApiOperation({ summary: 'Get all discounts for a specific event' })
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all discounts for your event' })
   @ApiResponse({
     status: 200,
     description: 'List of discounts for the event.',
@@ -66,8 +72,9 @@ export class DiscountsController {
   })
   async findByEvent(
     @Param('eventId', ParseIntPipe) eventId: number,
+    @CurrentUser() user: AuthRequestUser,
   ): Promise<DiscountResponseDto[]> {
-    return this.discountsService.findByEventId(eventId);
+    return this.discountsService.findByEventId(eventId, user);
   }
 
   @Get('validate/:code')
@@ -93,7 +100,9 @@ export class DiscountsController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a discount by ID' })
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get a discount for your event by ID' })
   @ApiResponse({
     status: 200,
     description: 'The discount details.',
@@ -102,8 +111,9 @@ export class DiscountsController {
   @ApiResponse({ status: 404, description: 'Discount not found.' })
   async findOne(
     @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthRequestUser,
   ): Promise<DiscountResponseDto> {
-    return this.discountsService.findOne(id);
+    return this.discountsService.findOne(id, user);
   }
 
   @Patch(':id')
@@ -119,9 +129,9 @@ export class DiscountsController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateDiscountDto: UpdateDiscountDto,
-    @Request() req: { user: { userId: string } },
+    @CurrentUser() user: AuthRequestUser,
   ): Promise<DiscountResponseDto> {
-    return this.discountsService.update(id, updateDiscountDto, req.user.userId);
+    return this.discountsService.update(id, updateDiscountDto, user);
   }
 
   @Delete(':id')
@@ -134,9 +144,9 @@ export class DiscountsController {
   })
   async remove(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: string } },
+    @CurrentUser() user: AuthRequestUser,
   ): Promise<void> {
-    return this.discountsService.remove(id, req.user.userId);
+    return this.discountsService.remove(id, user);
   }
 
   @Patch(':id/activate')
@@ -151,9 +161,9 @@ export class DiscountsController {
   @ApiResponse({ status: 404, description: 'Discount not found.' })
   async activate(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: string } },
+    @CurrentUser() user: AuthRequestUser,
   ): Promise<DiscountResponseDto> {
-    return this.discountsService.activate(id, req.user.userId);
+    return this.discountsService.activate(id, user);
   }
 
   @Patch(':id/deactivate')
@@ -168,8 +178,8 @@ export class DiscountsController {
   @ApiResponse({ status: 404, description: 'Discount not found.' })
   async deactivate(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { userId: string } },
+    @CurrentUser() user: AuthRequestUser,
   ): Promise<DiscountResponseDto> {
-    return this.discountsService.deactivate(id, req.user.userId);
+    return this.discountsService.deactivate(id, user);
   }
 }

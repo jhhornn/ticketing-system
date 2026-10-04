@@ -1,4 +1,9 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   IPaymentStrategy,
   PaymentRequest,
@@ -14,7 +19,13 @@ import {
   DEFAULT_PAYMENT_PROVIDER,
   DEFAULT_PAYMENT_PROVIDER_ENV_KEY,
   PAYMENT_MESSAGES,
+  isMockPaymentEnabled,
 } from './payment.constants.js';
+import { PrismaService } from '../../common/database/prisma.service.js';
+import {
+  type AuthRequestUser,
+  isAdminUser,
+} from '../auth/guards/auth-request.types.js';
 
 /**
  * Payment service using Strategy Pattern
@@ -30,10 +41,13 @@ export class PaymentService {
     private readonly mockStrategy: MockPaymentStrategy,
     private readonly stripeStrategy: StripePaymentStrategy,
     private readonly paystackStrategy: PaystackPaymentStrategy,
+    private readonly prisma: PrismaService,
   ) {
     // Register all payment strategies
     this.strategies = new Map();
-    this.strategies.set(PaymentMethod.MOCK, mockStrategy);
+    if (isMockPaymentEnabled()) {
+      this.strategies.set(PaymentMethod.MOCK, mockStrategy);
+    }
     this.strategies.set(PaymentMethod.STRIPE, stripeStrategy);
     this.strategies.set(PaymentMethod.PAYSTACK, paystackStrategy);
 
@@ -80,6 +94,27 @@ export class PaymentService {
   ): Promise<PaymentResponse> {
     const strategy = this.getStrategy(method);
     return await strategy.verifyPayment(paymentId);
+  }
+
+  /**
+   * Verify a payment on behalf of a user. Only the owner of the booking linked
+   * to the payment reference (or an admin) may see its status.
+   */
+  async verifyPaymentForUser(
+    paymentId: string,
+    user: Pick<AuthRequestUser, 'id' | 'role'>,
+    method?: PaymentMethod,
+  ): Promise<PaymentResponse> {
+    const booking = await this.prisma.booking.findFirst({
+      where: { paymentId },
+      select: { userId: true },
+    });
+
+    if (!booking || (booking.userId !== user.id && !isAdminUser(user))) {
+      throw new NotFoundException(PAYMENT_MESSAGES.paymentNotFound);
+    }
+
+    return this.verifyPayment(paymentId, method);
   }
 
   /**
