@@ -23,6 +23,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
     totalSeats: 0,
     saleStartTime: '',
     isFree: false,
+    ticketPrice: 0,
   });
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(false);
@@ -161,6 +162,19 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                     <input type="checkbox" id="isFree" name="isFree" checked={formData.isFree} onChange={handleChange} className="h-4 w-4 rounded" />
                     <label htmlFor="isFree" className="text-sm font-medium">This is a free event</label>
                 </div>
+                {!formData.isFree && (
+                  <input
+                    type="number"
+                    id="ticketPrice"
+                    name="ticketPrice"
+                    value={formData.ticketPrice || ''}
+                    onChange={handleChange}
+                    min="0.01"
+                    step="0.01"
+                    placeholder="Optional default ticket price (NGN)"
+                    className="w-full bg-input rounded-md border px-3 py-2 text-sm"
+                  />
+                )}
             </div>
           </div>
           

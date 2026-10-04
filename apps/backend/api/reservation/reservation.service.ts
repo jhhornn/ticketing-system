@@ -78,7 +78,7 @@ export class ReservationService {
       );
     }
 
-    if (event.status !== 'ON_SALE' && event.status !== 'UPCOMING') {
+    if (event.status !== 'ON_SALE') {
       throw new BadRequestException(
         `${RESERVATION_MESSAGES.ticketsNotAvailable} ${event.status.toLowerCase()}`,
       );
@@ -237,7 +237,7 @@ export class ReservationService {
       );
     }
 
-    if (event.status !== 'ON_SALE' && event.status !== 'UPCOMING') {
+    if (event.status !== 'ON_SALE') {
       throw new BadRequestException(
         `${RESERVATION_MESSAGES.ticketsNotAvailable} ${event.status.toLowerCase()}`,
       );

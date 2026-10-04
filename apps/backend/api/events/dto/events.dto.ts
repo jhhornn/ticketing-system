@@ -3,6 +3,7 @@ import {
   IsEnum,
   IsNotEmpty,
   IsNumber,
+  IsBoolean,
   IsOptional,
   IsString,
   Min,
@@ -60,7 +61,19 @@ export class CreateEventDto {
     description: 'Whether the event is free (no payment required)',
   })
   @IsOptional()
+  @IsBoolean()
   isFree?: boolean;
+
+  @ApiProperty({
+    example: 5000,
+    required: false,
+    description: 'Optional default ticket price used for sections inherited from a venue',
+  })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  ticketPrice?: number;
 }
 
 export class UpdateEventDto {

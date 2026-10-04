@@ -19,6 +19,7 @@ enum Role {
 }
 
 enum EventStatus {
+  DRAFT
   UPCOMING
   ON_SALE
   SOLD_OUT
@@ -139,7 +140,7 @@ model Event {
   customVenue    String?     @map("custom_venue") @db.VarChar(255)
   totalSeats     Int         @map("total_seats")
   availableSeats Int         @map("available_seats")
-  status         EventStatus @default(UPCOMING)
+  status         EventStatus @default(DRAFT)
   saleStartTime  DateTime?   @map("sale_start_time") @db.Timestamp(6)
   isFree         Boolean     @default(false) @map("is_free")
   createdBy      String      @map("created_by") @db.VarChar(50)

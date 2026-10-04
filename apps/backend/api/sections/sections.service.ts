@@ -235,6 +235,16 @@ export class SectionsService {
       data: updateSectionDto,
     });
 
+    if (
+      updateSectionDto.price !== undefined &&
+      section.type === SectionType.ASSIGNED
+    ) {
+      await this.prisma.seat.updateMany({
+        where: { sectionId: section.id },
+        data: { price: updateSectionDto.price },
+      });
+    }
+
     // Audit log the update
     await this.auditLog.log({
       entityType: AuditEntityType.EVENT_SECTION,

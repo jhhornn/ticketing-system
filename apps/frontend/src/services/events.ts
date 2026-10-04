@@ -2,6 +2,7 @@ import api from './api';
 
 export const EventStatus = {
   DRAFT: 'DRAFT',
+  UPCOMING: 'UPCOMING',
   ON_SALE: 'ON_SALE',
   SOLD_OUT: 'SOLD_OUT',
   CANCELLED: 'CANCELLED',
@@ -39,6 +40,7 @@ export interface CreateEventData {
   totalSeats: number;
   saleStartTime?: string;
   isFree?: boolean;
+  ticketPrice?: number;
 }
 
 export interface UpdateEventData {
@@ -79,8 +81,23 @@ export const EventsService = {
   },
 
   getInventory: async (id: number) => {
-    const response = await api.get<{ success: boolean; data: EventInventory }>(`/events/${id}/inventory`);
-    return response.data.data;
+    const response = await api.get<{ success: boolean; data: EventInventoryApiResponse }>(`/events/${id}/inventory`);
+    const inventory = response.data.data;
+
+    // The backend serializes Prisma BigInt IDs as strings. Normalize them at
+    // the API boundary so reservation DTOs receive actual numbers.
+    return {
+      ...inventory,
+      eventId: Number(inventory.eventId),
+      sections: inventory.sections.map(section => ({
+        ...section,
+        id: Number(section.id),
+        seats: section.seats?.map(seat => ({
+          ...seat,
+          id: Number(seat.id),
+        })),
+      })),
+    };
   },
 
   canPurchaseTickets: async (id: number): Promise<{ canPurchase: boolean; reason?: string }> => {
@@ -110,4 +127,14 @@ export interface InventorySection {
 export interface EventInventory {
   eventId: number;
   sections: InventorySection[];
+}
+
+interface EventInventoryApiResponse {
+  eventId: string;
+  sections: Array<Omit<InventorySection, 'id' | 'seats'> & {
+    id: string;
+    seats?: Array<Omit<NonNullable<InventorySection['seats']>[number], 'id'> & {
+      id: string;
+    }>;
+  }>;
 }
