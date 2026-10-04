@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
+import { API_DOCS_PATH } from './runtime.config.js';
 
 /**
  * Setup Swagger/Scalar API documentation
@@ -32,7 +33,7 @@ Production-ready distributed ticketing system with Redis-based locking and payme
 
   // Serve Scalar API Reference
   app.use(
-    '/api',
+    API_DOCS_PATH,
     apiReference({
       content: document,
       theme: 'purple',

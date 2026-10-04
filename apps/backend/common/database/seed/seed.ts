@@ -23,11 +23,76 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg(pool),
 });
 
+const LOCAL_ENVIRONMENTS = ['development', 'test'];
+const LOCAL_DB_HOSTS = [
+  'localhost',
+  '127.0.0.1',
+  '::1',
+  'postgres',
+  'db',
+  'host.docker.internal',
+];
+const DEV_DEFAULT_PASSWORD = 'password123';
+const MIN_REMOTE_SEED_PASSWORD_LENGTH = 12;
+
+function getDatabaseHost(): string {
+  try {
+    return new URL(process.env.DATABASE_URL ?? '').hostname.replace(
+      /^\[|\]$/g,
+      '',
+    );
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * SECURITY: The seed creates a SUPER_ADMIN and demo accounts. It only runs
+ * freely against a local development/test database. Anything else (a
+ * production NODE_ENV or a remote DATABASE_URL) requires ALLOW_REMOTE_SEED=true
+ * and a strong SEED_USER_PASSWORD — the well-known dev password is never used.
+ */
+function resolveSeedPassword(): { password: string; isDevDefault: boolean } {
+  const nodeEnv = process.env.NODE_ENV ?? 'development';
+  const dbHost = getDatabaseHost();
+  const isLocal =
+    LOCAL_ENVIRONMENTS.includes(nodeEnv) && LOCAL_DB_HOSTS.includes(dbHost);
+  const explicitPassword = process.env.SEED_USER_PASSWORD;
+
+  if (isLocal) {
+    return {
+      password: explicitPassword || DEV_DEFAULT_PASSWORD,
+      isDevDefault: !explicitPassword,
+    };
+  }
+
+  if (process.env.ALLOW_REMOTE_SEED !== 'true') {
+    throw new Error(
+      `Refusing to seed: NODE_ENV="${nodeEnv}", database host "${dbHost || 'unknown'}" is not a local development database. ` +
+        'Set ALLOW_REMOTE_SEED=true and SEED_USER_PASSWORD if you really mean to seed it.',
+    );
+  }
+
+  if (
+    !explicitPassword ||
+    explicitPassword.length < MIN_REMOTE_SEED_PASSWORD_LENGTH ||
+    explicitPassword === DEV_DEFAULT_PASSWORD
+  ) {
+    throw new Error(
+      `Refusing to seed a non-local database without a strong SEED_USER_PASSWORD (at least ${MIN_REMOTE_SEED_PASSWORD_LENGTH} characters).`,
+    );
+  }
+
+  return { password: explicitPassword, isDevDefault: false };
+}
+
 async function main() {
+  const { password, isDevDefault } = resolveSeedPassword();
+
   console.log('🌱 Starting database seeding...');
 
   // Create a Super Admin user - use upsert to avoid duplicates
-  const hashedPassword = await bcrypt.hash('password123', 10);
+  const hashedPassword = await bcrypt.hash(password, 10);
 
   const superAdmin = await prisma.user.upsert({
     where: { email: 'admin@ticketing.com' },
@@ -387,7 +452,9 @@ async function main() {
   console.log('   Organizer: organizer@example.com / ********');
   console.log('   Customer: customer@example.com / ********');
   console.log(
-    '\n   ⚠️  Default password is "password123" - Change in production!',
+    isDevDefault
+      ? `\n   ⚠️  Local dev password is "${DEV_DEFAULT_PASSWORD}" (set SEED_USER_PASSWORD to override)`
+      : '\n   🔒 Password: value of SEED_USER_PASSWORD',
   );
 }
 

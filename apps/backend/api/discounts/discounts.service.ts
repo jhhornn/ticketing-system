@@ -8,7 +8,7 @@ import { PrismaService } from '../../common/database/prisma.service.js';
 import { CreateDiscountDto } from './dto/create-discount.dto.js';
 import { UpdateDiscountDto } from './dto/update-discount.dto.js';
 import { DiscountResponseDto } from './dto/discount-response.dto.js';
-import { Discount } from '@prisma/client';
+import { Discount, Prisma } from '@prisma/client';
 import {
   type AuthRequestUser,
   isAdminUser,
@@ -270,16 +270,39 @@ export class DiscountsService {
   }
 
   /**
-   * Increments the usage count when a discount is successfully applied
+   * Atomically claim one use of a discount code.
+   *
+   * The limit check and the increment happen in a single conditional UPDATE,
+   * so concurrent checkouts can never push usageCount past usageLimit.
+   * Returns false if the code is inactive or already at its limit.
    */
-  async incrementUsageCount(code: string): Promise<void> {
-    await this.prisma.discount.updateMany({
-      where: { code },
-      data: {
-        usageCount: {
-          increment: 1,
-        },
+  async reserveUsage(code: string): Promise<boolean> {
+    const { count } = await this.prisma.discount.updateMany({
+      where: {
+        code,
+        isActive: true,
+        OR: [
+          { usageLimit: null },
+          { usageCount: { lt: this.prisma.discount.fields.usageLimit } },
+        ],
       },
+      data: { usageCount: { increment: 1 } },
+    });
+
+    return count === 1;
+  }
+
+  /**
+   * Return a previously reserved use (failed or abandoned booking).
+   * Never decrements below zero.
+   */
+  async releaseUsage(
+    code: string,
+    client: Pick<Prisma.TransactionClient, 'discount'> = this.prisma,
+  ): Promise<void> {
+    await client.discount.updateMany({
+      where: { code, usageCount: { gt: 0 } },
+      data: { usageCount: { decrement: 1 } },
     });
   }
 

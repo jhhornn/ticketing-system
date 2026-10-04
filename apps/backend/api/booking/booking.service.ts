@@ -69,6 +69,8 @@ export class BookingService {
     // Start saga/transaction
     let paymentId: string | undefined;
     let paymentMetadata: Record<string, unknown> | undefined;
+    let reservedDiscountCode: string | undefined;
+    let createdBookingId: bigint | undefined;
     const seatIds: bigint[] = []; // Only for assigned seats
     const sectionAllocations: { sectionId: bigint; quantity: number }[] = []; // For GA
 
@@ -223,6 +225,19 @@ export class BookingService {
             }
           }
 
+          // Step 3.6: Atomically claim a use of the discount BEFORE charging,
+          // so concurrent checkouts cannot exceed its usage limit
+          if (appliedDiscountCode) {
+            const claimed =
+              await this.discountsService.reserveUsage(appliedDiscountCode);
+            if (!claimed) {
+              throw new BadRequestException(
+                BOOKING_MESSAGES.discountUsageLimitReached,
+              );
+            }
+            reservedDiscountCode = appliedDiscountCode;
+          }
+
           // Step 4: Process payment
           let paymentStatus: PaymentStatus = PaymentStatus.SUCCESS;
 
@@ -286,24 +301,17 @@ export class BookingService {
               paymentId,
               paymentStatus: paymentStatus,
               bookingReference,
+              discountCode: appliedDiscountCode ?? null,
               confirmedAt:
                 paymentStatus === PaymentStatus.PENDING ? null : new Date(),
             },
           });
 
+          createdBookingId = booking.id;
+
           this.logger.log(
             `Booking created: ${bookingReference}, Status: ${bookingStatus}, Payment: ${paymentStatus}`,
           );
-
-          // Step 5.5: Increment discount usage count if discount was applied
-          if (appliedDiscountCode) {
-            await this.discountsService.incrementUsageCount(
-              appliedDiscountCode,
-            );
-            this.logger.log(
-              `Incremented usage count for discount: ${appliedDiscountCode}`,
-            );
-          }
 
           // Step 6: Link items to booking
           for (const res of reservations) {
@@ -412,6 +420,36 @@ export class BookingService {
               : 'Unknown error';
           this.logger.error(
             `Failed to refund payment ${paymentId}: ${errorMessage}`,
+          );
+        }
+      }
+
+      // Don't leave a half-created booking looking active
+      if (createdBookingId) {
+        try {
+          await this.prisma.booking.update({
+            where: { id: createdBookingId },
+            data: {
+              status: BookingStatus.FAILED,
+              paymentStatus: paymentId
+                ? PaymentStatus.REFUNDED
+                : PaymentStatus.FAILED,
+            },
+          });
+        } catch (bookingError) {
+          this.logger.error(
+            `Failed to mark booking ${createdBookingId} as failed: ${bookingError}`,
+          );
+        }
+      }
+
+      // Give back the discount use claimed for this attempt
+      if (reservedDiscountCode) {
+        try {
+          await this.discountsService.releaseUsage(reservedDiscountCode);
+        } catch (discountError) {
+          this.logger.error(
+            `Failed to release discount ${reservedDiscountCode}: ${discountError}`,
           );
         }
       }

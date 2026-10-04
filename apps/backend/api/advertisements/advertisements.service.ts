@@ -7,11 +7,23 @@ import {
   UpdateAdvertisementDto,
   AdvertisementResponseDto,
 } from './dto/advertisement.dto.js';
-import { AdStatus, AdPlacement } from '../../common/enums/index.js';
+import {
+  AdStatus,
+  AdPlacement,
+  AdInteractionType,
+} from '../../common/enums/index.js';
+import { RedisService } from '../../common/redis/redis.service.js';
+
+/** Each client counts at most once per ad per interaction type in this window. */
+export const AD_STATS_DEDUPE_WINDOW_SECONDS = 30 * 60;
+const AD_STATS_KEY_PREFIX = 'ad-stats';
 
 @Injectable()
 export class AdvertisementsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private redis: RedisService,
+  ) {}
 
   async create(
     dto: CreateAdvertisementDto,
@@ -143,26 +155,54 @@ export class AdvertisementsService {
     });
   }
 
-  async incrementImpression(id: string): Promise<void> {
-    await this.prisma.advertisement.update({
-      where: { id: BigInt(id) },
-      data: {
-        impressions: {
-          increment: 1,
-        },
-      },
-    });
-  }
+  /**
+   * Record an impression/click from an anonymous client.
+   *
+   * SECURITY: The endpoint is public, so repeats from the same client within
+   * the dedupe window are ignored (keyed by client IP in Redis), and only
+   * currently active ads can be counted.
+   *
+   * @returns true if the interaction was counted
+   */
+  async recordInteraction(
+    id: string,
+    type: AdInteractionType,
+    clientKey: string,
+  ): Promise<boolean> {
+    const adId = BigInt(id);
+    const now = new Date();
+    const isRunning: Prisma.AdvertisementWhereInput = {
+      id: adId,
+      status: AdStatus.ACTIVE,
+      startDate: { lte: now },
+      OR: [{ endDate: null }, { endDate: { gte: now } }],
+    };
 
-  async incrementClick(id: string): Promise<void> {
-    await this.prisma.advertisement.update({
-      where: { id: BigInt(id) },
-      data: {
-        clicks: {
-          increment: 1,
-        },
-      },
+    const ad = await this.prisma.advertisement.findFirst({
+      where: isRunning,
+      select: { id: true },
     });
+    if (!ad) {
+      throw new NotFoundException(`Advertisement with ID ${id} not found`);
+    }
+
+    const firstInWindow = await this.redis.setnx(
+      `${AD_STATS_KEY_PREFIX}:${type}:${id}:${clientKey}`,
+      '1',
+      AD_STATS_DEDUPE_WINDOW_SECONDS,
+    );
+    if (!firstInWindow) {
+      return false;
+    }
+
+    await this.prisma.advertisement.update({
+      where: { id: adId },
+      data:
+        type === AdInteractionType.IMPRESSION
+          ? { impressions: { increment: 1 } }
+          : { clicks: { increment: 1 } },
+    });
+    return true;
   }
 
   private mapToResponse(ad: Advertisement): AdvertisementResponseDto {

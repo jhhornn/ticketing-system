@@ -10,7 +10,10 @@ import {
   UseGuards,
   HttpStatus,
   Query,
+  Ip,
+  ParseIntPipe,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AdvertisementsService } from './advertisements.service.js';
 import {
@@ -23,7 +26,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { SuperAdminGuard } from '../auth/guards/super-admin.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import type { IAuthenticatedUser } from '../../common/interfaces/index.js';
-import { AdPlacement, AdInteractionType } from '../../common/enums/index.js';
+import { AdPlacement } from '../../common/enums/index.js';
 import {
   ApiStandardResponse,
   ApiStandardArrayResponse,
@@ -115,16 +118,25 @@ export class AdvertisementsController {
   }
 
   @Post(':id/stats')
-  @ApiOperation({ summary: 'Increment ad impression or click' })
+  // Tighter than the global limit: a real visitor only sees a few ads a minute
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  @ApiOperation({
+    summary: 'Record ad impression or click',
+    description:
+      'Public. Counted at most once per client, ad and type every 30 minutes.',
+  })
   async incrementStats(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: IncrementAdStatsDto,
+    @Ip() clientIp: string,
   ): Promise<{ message: string }> {
-    if (dto.type === AdInteractionType.IMPRESSION) {
-      await this.advertisementsService.incrementImpression(id);
-    } else {
-      await this.advertisementsService.incrementClick(id);
-    }
-    return { message: `${dto.type} incremented successfully` };
+    await this.advertisementsService.recordInteraction(
+      String(id),
+      dto.type,
+      clientIp || 'unknown',
+    );
+    // Same response whether or not it was counted, so the dedupe window
+    // can't be probed
+    return { message: `${dto.type} recorded` };
   }
 }

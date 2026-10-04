@@ -9,7 +9,7 @@ import {
   RefundResponse,
   PaymentStatus,
 } from './payment-strategy.interface';
-import { PrismaService } from '../../../common/database/prisma.service.js';
+import { BookingSettlementService } from '../../booking/settlement/booking-settlement.service.js';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 const DEFAULT_CALLBACK_URL = 'http://localhost:5173/payment/verify';
@@ -140,7 +140,7 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
   private readonly secretKey: string;
   private readonly callbackUrl: string;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(private readonly bookingSettlement: BookingSettlementService) {
     const secretKey = process.env.PAYSTACK_SECRET_KEY;
     if (!secretKey) {
       this.logger.warn(
@@ -256,10 +256,17 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
     } catch (error) {
       const message = this.extractErrorMessage(error);
       this.logger.error(`Paystack verify failed: ${message}`);
+      // A 4xx means Paystack rejected the reference. Anything else (timeout,
+      // network, 5xx) means the outcome is unknown, so report PENDING and let
+      // callers retry instead of treating a paid transaction as failed.
+      const httpStatus =
+        error instanceof AxiosError ? error.response?.status : undefined;
+      const definitelyFailed =
+        httpStatus !== undefined && httpStatus >= 400 && httpStatus < 500;
       return {
         success: false,
         paymentId,
-        status: PaymentStatus.FAILED,
+        status: definitelyFailed ? PaymentStatus.FAILED : PaymentStatus.PENDING,
         amount: 0,
         currency: 'NGN',
         errorMessage: message,
@@ -353,21 +360,18 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
         this.logger.log(
           `Payment successful — reference: ${event.data.reference}, amount: ${event.data.amount / 100} ${event.data.currency}`,
         );
-        await this.updateBookingStatus(
+        await this.settleSuccessfulCharge(
           event.data.reference,
-          'SUCCESS',
-          'CONFIRMED',
-          { amount: event.data.amount, currency: event.data.currency },
+          event.data.amount,
+          event.data.currency,
         );
         break;
 
       case 'charge.failed':
+        // A failed attempt does not end the transaction — the customer can
+        // retry with another card on the same checkout. The booking is only
+        // released by the abandoned-booking cleanup job after it times out.
         this.logger.warn(`Payment failed — reference: ${event.data.reference}`);
-        await this.updateBookingStatus(
-          event.data.reference,
-          'FAILED',
-          'FAILED',
-        );
         break;
 
       case 'transfer.success':
@@ -387,82 +391,72 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
   }
 
   // ---------------------------------------------------------------------------
-  // Booking status updates (webhook-driven)
+  // Booking settlement (webhook-driven)
   // ---------------------------------------------------------------------------
 
   /**
-   * Update the booking record associated with a Paystack transaction reference.
-   *
-   * The `paymentId` column on the Booking table stores the Paystack reference
-   * that was returned from `processPayment`.
+   * Confirm the booking linked to a successful charge. If the booking can no
+   * longer be confirmed (already released after timing out, or the amount
+   * collected does not match), the customer is refunded so nobody pays for
+   * tickets they did not get.
    */
-  private async updateBookingStatus(
+  private async settleSuccessfulCharge(
     reference: string,
-    paymentStatus: 'SUCCESS' | 'FAILED',
-    bookingStatus: 'CONFIRMED' | 'FAILED',
-    paid?: { amount: number; currency: string },
+    amountMinor: number,
+    currency: string,
   ): Promise<void> {
     try {
-      const booking = await this.prisma.booking.findFirst({
-        where: { paymentId: reference },
-      });
-
-      if (!booking) {
-        this.logger.warn(
-          `Webhook: No booking found for Paystack reference ${reference}`,
-        );
-        return;
-      }
-
-      if (
-        booking.paymentStatus === paymentStatus &&
-        booking.status === bookingStatus
-      ) {
-        this.logger.log(
-          `Webhook: Booking ${booking.bookingReference} already in desired state — skipping`,
-        );
-        return;
-      }
-
-      // SECURITY: Only PENDING bookings may transition. A late/replayed
-      // charge.failed must not cancel a confirmed booking, and a failed one
-      // must not be resurrected.
-      if (booking.status !== 'PENDING') {
-        this.logger.warn(
-          `Webhook: Booking ${booking.bookingReference} is ${booking.status}, ignoring transition to ${bookingStatus}`,
-        );
-        return;
-      }
-
-      // SECURITY: Confirm only if Paystack collected the full amount we charged
-      if (
-        paid &&
-        (paid.amount !== toKobo(Number(booking.totalAmount)) ||
-          paid.currency?.toUpperCase() !== 'NGN')
-      ) {
-        this.logger.error(
-          `Webhook: Amount mismatch for booking ${booking.bookingReference} — expected ${toKobo(Number(booking.totalAmount))} NGN (kobo), got ${paid.amount} ${paid.currency}`,
-        );
-        return;
-      }
-
-      await this.prisma.booking.update({
-        where: { id: booking.id },
-        data: {
-          paymentStatus,
-          status: bookingStatus,
-          confirmedAt:
-            bookingStatus === 'CONFIRMED' ? new Date() : booking.confirmedAt,
-        },
-      });
-
-      this.logger.log(
-        `Webhook: Updated booking ${booking.bookingReference} → paymentStatus=${paymentStatus}, status=${bookingStatus}`,
+      const result = await this.bookingSettlement.confirmPaidBooking(
+        reference,
+        { amountMinor, currency },
       );
+
+      switch (result) {
+        case 'confirmed':
+        case 'already_confirmed':
+          return;
+
+        case 'not_found':
+          this.logger.warn(
+            `Webhook: No booking found for Paystack reference ${reference}`,
+          );
+          return;
+
+        case 'amount_mismatch':
+          await this.bookingSettlement.releaseUnpaidBookingByReference(
+            reference,
+            'payment amount mismatch',
+          );
+          await this.refundUnfulfilledCharge(reference, 'amount mismatch');
+          return;
+
+        case 'not_pending':
+          await this.refundUnfulfilledCharge(
+            reference,
+            'booking was no longer awaiting payment',
+          );
+          return;
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Webhook: Failed to update booking for reference ${reference}: ${message}`,
+        `Webhook: Failed to settle booking for reference ${reference}: ${message}`,
+      );
+    }
+  }
+
+  private async refundUnfulfilledCharge(
+    reference: string,
+    reason: string,
+  ): Promise<void> {
+    this.logger.warn(`Webhook: Refunding ${reference} — ${reason}`);
+    const refund = await this.refundPayment({
+      paymentId: reference,
+      reason: `Booking could not be fulfilled: ${reason}`,
+    });
+    if (!refund.success) {
+      this.logger.error(
+        `Webhook: Automatic refund for ${reference} failed (${refund.errorMessage}) — refund manually`,
       );
     }
   }

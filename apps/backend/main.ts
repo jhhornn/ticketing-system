@@ -8,17 +8,21 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
 import { setupSwagger } from './common/config/swagger.config.js';
 import {
+  API_DOCS_PATH,
   DEFAULT_PORT,
   getAllowedOrigins,
+  getTrustProxySetting,
+  isApiDocsEnabled,
 } from './common/config/runtime.config.js';
 import { LoggerService } from './common/logger/logger.service.js';
 import { RequestContextService } from './common/logger/request-context.service.js';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     // Disable default NestJS logger, use our structured logger
     // WHY: Consistent logging format across the entire application
     logger: false,
@@ -29,37 +33,52 @@ async function bootstrap() {
   // Get our custom logger for bootstrap logs
   const logger = app.get(LoggerService);
 
-  // Security: Add helmet for security headers
-  // Relaxed CSP for /api documentation route
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.path.startsWith('/api')) {
-      // Disable CSP for API docs route to allow Scalar CDN
-      res.removeHeader('Content-Security-Policy');
-    }
-    next();
+  // Behind Render's (or any single) reverse proxy, trust one hop so req.ip is
+  // the real client IP. Required for per-client rate limiting.
+  app.set('trust proxy', getTrustProxySetting());
+
+  // Security headers. The API only serves JSON, so it gets a locked-down CSP.
+  // The interactive docs (when enabled) need inline/eval scripts from the
+  // Scalar CDN, so that relaxed policy is scoped to the docs route only.
+  const apiDocsEnabled = isApiDocsEnabled();
+  const strictHelmet = helmet({
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: {
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'none'"],
+        formAction: ["'none'"],
+      },
+    },
+  });
+  const docsHelmet = helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          'https://cdn.jsdelivr.net',
+        ],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'", 'data:', 'https://cdn.jsdelivr.net'],
+        workerSrc: ["'self'", 'blob:'],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
   });
 
-  app.use(
-    helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
-          scriptSrc: [
-            "'self'",
-            "'unsafe-inline'",
-            "'unsafe-eval'",
-            'https://cdn.jsdelivr.net',
-          ],
-          imgSrc: ["'self'", 'data:', 'https:'],
-          connectSrc: ["'self'"],
-          fontSrc: ["'self'", 'data:', 'https://cdn.jsdelivr.net'],
-          workerSrc: ["'self'", 'blob:'],
-        },
-      },
-      crossOriginEmbedderPolicy: false, // Disable for API
-    }),
-  );
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const isDocsRoute =
+      req.path === API_DOCS_PATH || req.path.startsWith(`${API_DOCS_PATH}/`);
+    return apiDocsEnabled && isDocsRoute
+      ? docsHelmet(req, res, next)
+      : strictHelmet(req, res, next);
+  });
 
   // Security: Add cookie parser for HttpOnly cookies
   app.use(cookieParser());
@@ -92,8 +111,10 @@ async function bootstrap() {
   // Global Response Transformer
   app.useGlobalInterceptors(new TransformInterceptor());
 
-  // Setup API Documentation
-  setupSwagger(app);
+  // Setup API Documentation (disabled in production unless ENABLE_API_DOCS=true)
+  if (apiDocsEnabled) {
+    setupSwagger(app);
+  }
 
   const port = process.env.PORT ?? DEFAULT_PORT;
   await app.listen(port);
@@ -106,7 +127,9 @@ async function bootstrap() {
       port,
       environment: process.env.NODE_ENV || 'development',
       cors_origins: allowedOrigins,
-      api_docs_url: `http://localhost:${port}/api`,
+      api_docs_url: apiDocsEnabled
+        ? `http://localhost:${port}${API_DOCS_PATH}`
+        : 'disabled',
     },
     'Application started successfully',
   );
