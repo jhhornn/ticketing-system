@@ -80,7 +80,7 @@ export class PendingBookingCleanupService {
     if (!booking.paymentId) {
       await this.bookingSettlement.releaseUnpaidBooking(
         booking.id,
-        'no payment reference',
+        'no_payment_reference',
       );
       return;
     }
@@ -95,7 +95,7 @@ export class PendingBookingCleanupService {
       if (result === 'amount_mismatch') {
         await this.bookingSettlement.releaseUnpaidBooking(
           booking.id,
-          'payment amount mismatch',
+          'amount_mismatch',
         );
         await this.paymentService.refundPayment(
           { paymentId: booking.paymentId, reason: 'Payment amount mismatch' },
@@ -106,10 +106,7 @@ export class PendingBookingCleanupService {
     }
 
     if (status.state === 'failed') {
-      await this.bookingSettlement.releaseUnpaidBooking(
-        booking.id,
-        'payment not completed before timeout',
-      );
+      await this.bookingSettlement.releaseUnpaidBooking(booking.id, 'timeout');
       return;
     }
 
@@ -118,7 +115,7 @@ export class PendingBookingCleanupService {
     if (pastHardLimit) {
       await this.bookingSettlement.releaseUnpaidBooking(
         booking.id,
-        `payment unconfirmed after ${PENDING_PAYMENT_MAX_MINUTES} minutes`,
+        'unconfirmed',
       );
     }
   }

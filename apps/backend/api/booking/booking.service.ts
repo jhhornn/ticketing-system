@@ -24,6 +24,11 @@ import {
   isAdminUser,
 } from '../auth/guards/auth-request.types.js';
 import {
+  AnalyticsService,
+  ServerAnalyticsEvents,
+} from '../../common/analytics/analytics.service.js';
+import { BusinessMetrics } from '../../common/telemetry/business-metrics.js';
+import {
   BOOKING_IDEMPOTENCY_TTL_HOURS,
   BOOKING_MESSAGES,
   BOOKING_REFERENCE_PREFIX,
@@ -38,6 +43,7 @@ export class BookingService {
     private readonly lockingService: LockingService,
     private readonly paymentService: PaymentService,
     private readonly discountsService: DiscountsService,
+    private readonly analytics: AnalyticsService,
   ) {}
 
   /**
@@ -395,6 +401,36 @@ export class BookingService {
           this.logger.log(
             `Booking confirmed: ${bookingReference} (Payment: ${paymentId})`,
           );
+
+          const bookingAnalytics = {
+            bookingReference,
+            eventId: Number(reservation.eventId),
+            paymentMethod: finalAmount > 0 ? paymentMethod : 'free',
+            amount: finalAmount,
+            currency: 'NGN',
+            ticketCount: reservations.length,
+            discountCode: appliedDiscountCode,
+            discountAmount,
+          };
+          this.analytics.capture(userId, ServerAnalyticsEvents.bookingCreated, {
+            ...bookingAnalytics,
+            status: bookingStatus,
+          });
+          // Free/instant payments are confirmed now; Paystack bookings are
+          // confirmed later by BookingSettlementService
+          if (bookingStatus === BookingStatus.CONFIRMED) {
+            BusinessMetrics.bookingConfirmed({
+              paymentMethod: bookingAnalytics.paymentMethod,
+              amount: finalAmount,
+              ticketCount: reservations.length,
+              minutesToPay: 0,
+            });
+            this.analytics.capture(
+              userId,
+              ServerAnalyticsEvents.bookingConfirmed,
+              bookingAnalytics,
+            );
+          }
 
           return response;
         },

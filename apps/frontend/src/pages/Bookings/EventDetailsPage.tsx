@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { track, AnalyticsEvents } from '../../lib/analytics';
 import { useParams, useNavigate } from 'react-router-dom';
 import { EventsService, type Event, type EventInventory } from '../../services/events';
 import { ReservationsService } from '../../services/reservations';
@@ -106,6 +107,10 @@ export const EventDetailsPage: React.FC = () => {
                     type: result.discount.type,
                 });
                 setDiscountError(null);
+                track(AnalyticsEvents.discountApplied, {
+                    eventId: event.id,
+                    discountType: result.discount.type,
+                });
             } else {
                 setAppliedDiscount(null);
                 setDiscountError(result.reason || 'Invalid discount code');
@@ -211,6 +216,15 @@ export const EventDetailsPage: React.FC = () => {
                 finalPrice = Math.max(0, basePrice - discountAmount);
             }
 
+            track(AnalyticsEvents.seatsReserved, {
+                eventId: event.id,
+                sectionType: payload.type,
+                ticketCount: isGA ? quantity : selectedSeatIds.length,
+                totalPrice: finalPrice,
+                hasDiscount: !!appliedDiscount,
+                partial: (response.failedSeats?.length ?? 0) > 0,
+            });
+
             navigate('/checkout', {
                 state: {
                     reservationId: response.id,
@@ -227,6 +241,11 @@ export const EventDetailsPage: React.FC = () => {
 
         } catch (err: unknown) {
             console.error('Reservation failed', err);
+            track(AnalyticsEvents.reservationFailed, {
+                eventId: event.id,
+                sectionType: isGA ? 'GENERAL' : 'ASSIGNED',
+                isRetry,
+            });
 
             handleReservationError(err, {
                 context: {

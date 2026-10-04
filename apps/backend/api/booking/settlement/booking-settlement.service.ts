@@ -2,6 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../common/database/prisma.service.js';
 import { DiscountsService } from '../../discounts/discounts.service.js';
 import {
+  AnalyticsService,
+  ServerAnalyticsEvents,
+} from '../../../common/analytics/analytics.service.js';
+import {
+  BusinessMetrics,
+  type ReleaseReason,
+} from '../../../common/telemetry/business-metrics.js';
+import {
   BookingStatus,
   PaymentStatus,
   SeatStatus,
@@ -42,6 +50,7 @@ export class BookingSettlementService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly discountsService: DiscountsService,
+    private readonly analytics: AnalyticsService,
   ) {}
 
   /**
@@ -100,6 +109,27 @@ export class BookingSettlementService {
     }
 
     this.logger.log(`Booking ${booking.bookingReference} confirmed`);
+    const minutesToPay = Math.round(
+      (Date.now() - booking.createdAt.getTime()) / 60000,
+    );
+    BusinessMetrics.bookingConfirmed({
+      paymentMethod: 'paystack',
+      amount: Number(booking.totalAmount),
+      minutesToPay,
+    });
+    this.analytics.capture(
+      booking.userId,
+      ServerAnalyticsEvents.bookingConfirmed,
+      {
+        bookingReference: booking.bookingReference,
+        eventId: Number(booking.eventId),
+        paymentMethod: 'paystack',
+        amount: Number(booking.totalAmount),
+        currency: BOOKING_CURRENCY,
+        discountCode: booking.discountCode ?? undefined,
+        minutesToPay,
+      },
+    );
     return 'confirmed';
   }
 
@@ -112,7 +142,7 @@ export class BookingSettlementService {
    */
   async releaseUnpaidBooking(
     bookingId: bigint,
-    reason: string,
+    reason: ReleaseReason,
   ): Promise<boolean> {
     const released = await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.booking.updateMany({
@@ -169,7 +199,13 @@ export class BookingSettlementService {
         await this.discountsService.releaseUsage(booking.discountCode, tx);
       }
 
-      return { reference: booking.bookingReference, releasedTickets };
+      return {
+        reference: booking.bookingReference,
+        userId: booking.userId,
+        eventId: booking.eventId,
+        amount: Number(booking.totalAmount),
+        releasedTickets,
+      };
     });
 
     if (!released) {
@@ -179,13 +215,50 @@ export class BookingSettlementService {
     this.logger.log(
       `Released unpaid booking ${released.reference} (${released.releasedTickets} tickets): ${reason}`,
     );
+    BusinessMetrics.bookingReleased(reason, released.releasedTickets);
+    this.analytics.capture(
+      released.userId,
+      ServerAnalyticsEvents.bookingReleased,
+      {
+        bookingReference: released.reference,
+        eventId: Number(released.eventId),
+        amount: released.amount,
+        currency: BOOKING_CURRENCY,
+        ticketCount: released.releasedTickets,
+        reason,
+      },
+    );
     return true;
+  }
+
+  /** Record that a payment was refunded because its booking couldn't be fulfilled. */
+  async recordUnfulfilledRefund(
+    paymentReference: string,
+    reason: string,
+    refunded: boolean,
+  ): Promise<void> {
+    const booking = await this.prisma.booking.findFirst({
+      where: { paymentId: paymentReference },
+      select: { userId: true, bookingReference: true, eventId: true },
+    });
+    if (!booking) return;
+
+    this.analytics.capture(
+      booking.userId,
+      ServerAnalyticsEvents.paymentRefundedUnfulfilled,
+      {
+        bookingReference: booking.bookingReference,
+        eventId: Number(booking.eventId),
+        reason,
+        refunded,
+      },
+    );
   }
 
   /** Same as releaseUnpaidBooking, looked up by payment reference. */
   async releaseUnpaidBookingByReference(
     paymentReference: string,
-    reason: string,
+    reason: ReleaseReason,
   ): Promise<boolean> {
     const booking = await this.prisma.booking.findFirst({
       where: { paymentId: paymentReference },

@@ -425,7 +425,7 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
         case 'amount_mismatch':
           await this.bookingSettlement.releaseUnpaidBookingByReference(
             reference,
-            'payment amount mismatch',
+            'amount_mismatch',
           );
           await this.refundUnfulfilledCharge(reference, 'amount mismatch');
           return;
@@ -454,6 +454,11 @@ export class PaystackPaymentStrategy implements IPaymentStrategy {
       paymentId: reference,
       reason: `Booking could not be fulfilled: ${reason}`,
     });
+    await this.bookingSettlement.recordUnfulfilledRefund(
+      reference,
+      reason,
+      refund.success,
+    );
     if (!refund.success) {
       this.logger.error(
         `Webhook: Automatic refund for ${reference} failed (${refund.errorMessage}) — refund manually`,

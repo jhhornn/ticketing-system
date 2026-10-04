@@ -11,6 +11,10 @@ import { LoginDto, RegisterDto, AuthResponseDto } from './dto/auth.dto.js';
 import { RequestContextService } from '../../common/logger/request-context.service.js';
 import { Role } from '@prisma/client';
 import {
+  AnalyticsService,
+  ServerAnalyticsEvents,
+} from '../../common/analytics/analytics.service.js';
+import {
   AUTH_ACTIONS,
   AUTH_ERROR_MESSAGES,
   AUTH_FAILURE_REASONS,
@@ -31,6 +35,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private requestContext: RequestContextService,
+    private analytics: AnalyticsService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -74,6 +79,10 @@ export class AuthService {
     this.requestContext.addBusinessContext({
       auth_registration_success: true,
       auth_user_role: user.role,
+    });
+
+    this.analytics.capture(user.id, ServerAnalyticsEvents.userRegistered, {
+      role: user.role,
     });
 
     // Generate token

@@ -9,6 +9,8 @@ import { DatabaseModule } from './common/database/index.js';
 import { RedisModule } from './common/redis/index.js';
 import { LocksModule } from './common/locks/index.js';
 import { AuditLogModule } from './common/audit/audit-log.module.js';
+import { AnalyticsModule } from './common/analytics/analytics.module.js';
+import { TelemetryShutdownService } from './common/telemetry/telemetry-shutdown.service.js';
 import { LoggerModule, LoggingMiddleware } from './common/logger/index.js';
 import { PaymentModule } from './api/payment/payment.module.js';
 import { ReservationModule } from './api/reservation/reservation.module.js';
@@ -42,6 +44,7 @@ import { THROTTLER_DEFAULTS } from './common/config/runtime.config.js';
     RedisModule,
     LocksModule,
     AuditLogModule,
+    AnalyticsModule,
     PaymentModule,
     ReservationModule,
     BookingModule,
@@ -57,6 +60,7 @@ import { THROTTLER_DEFAULTS } from './common/config/runtime.config.js';
   controllers: [AppController],
   providers: [
     AppService,
+    TelemetryShutdownService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

@@ -30,6 +30,10 @@ async function bootstrap() {
     rawBody: true,
   });
 
+  // Run shutdown hooks on SIGTERM (e.g. Render redeploys) so queued analytics
+  // events and telemetry are flushed and connections close cleanly
+  app.enableShutdownHooks();
+
   // Get our custom logger for bootstrap logs
   const logger = app.get(LoggerService);
 

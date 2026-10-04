@@ -8,6 +8,10 @@ import {
   resolveLoggerLevel,
 } from './logger.config.js';
 
+/** Attribute keys never sent to OTLP log backends. */
+const SENSITIVE_OTEL_ATTRIBUTE_PATTERN =
+  /email|password|passwd|secret|token|authorization|cookie|api[_-]?key/i;
+
 /**
  * Logger Service - Implements Wide Events pattern for observability
  *
@@ -211,13 +215,23 @@ export class LoggerService {
 
   private toOtelAttributes(
     input: Record<string, unknown>,
-  ): Record<string, string | number | boolean | Array<string | number | boolean>> {
+  ): Record<
+    string,
+    string | number | boolean | Array<string | number | boolean>
+  > {
     const attributes: Record<
       string,
       string | number | boolean | Array<string | number | boolean>
     > = {};
 
     for (const [key, value] of Object.entries(input)) {
+      // Exported logs leave our infrastructure (e.g. PostHog), so drop
+      // personal data and credentials. stdout logs are unaffected.
+      if (SENSITIVE_OTEL_ATTRIBUTE_PATTERN.test(key)) {
+        attributes[key] = '[REDACTED]';
+        continue;
+      }
+
       const converted = this.toOtelAttributeValue(value);
       if (converted !== undefined) {
         attributes[key] = converted;
