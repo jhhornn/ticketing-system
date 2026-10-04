@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsArray, IsString, ArrayMinSize } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsArray,
+  IsString,
+  ArrayMinSize,
+  IsOptional,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { ReservationStatus } from '../../../common/enums/index.js';
 
@@ -76,13 +82,16 @@ export class ReservationResponseDto {
 }
 
 export class CancelReservationDto {
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  reservationId: string;
+  reservationId?: string;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiProperty({
+    required: false,
+    description: 'Deprecated and ignored — the authenticated user is used',
+  })
+  @IsOptional()
   @IsString()
-  userId: string;
+  userId?: string;
 }

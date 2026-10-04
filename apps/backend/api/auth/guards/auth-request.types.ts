@@ -15,6 +15,10 @@ export type AuthenticatedRequest = Request & {
   user?: AuthRequestUser;
 };
 
+export function isAdminUser(user: Pick<AuthRequestUser, 'role'>): boolean {
+  return user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN;
+}
+
 export function getRequiredUser(
   request: AuthenticatedRequest,
 ): AuthRequestUser {

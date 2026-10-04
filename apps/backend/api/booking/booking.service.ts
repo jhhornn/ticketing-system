@@ -4,7 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
-  // ConflictException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/database/prisma.service.js';
 import { LockingService } from '../../common/locks/locking.service.js';
@@ -20,6 +20,15 @@ import {
 } from '../../common/enums/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  type AuthRequestUser,
+  isAdminUser,
+} from '../auth/guards/auth-request.types.js';
+import {
+  AnalyticsService,
+  ServerAnalyticsEvents,
+} from '../../common/analytics/analytics.service.js';
+import { BusinessMetrics } from '../../common/telemetry/business-metrics.js';
+import {
   BOOKING_IDEMPOTENCY_TTL_HOURS,
   BOOKING_MESSAGES,
   BOOKING_REFERENCE_PREFIX,
@@ -34,24 +43,28 @@ export class BookingService {
     private readonly lockingService: LockingService,
     private readonly paymentService: PaymentService,
     private readonly discountsService: DiscountsService,
+    private readonly analytics: AnalyticsService,
   ) {}
 
   /**
    * Confirm booking with payment (with idempotency)
    * Implements saga pattern for rollback on failure
    */
-  async confirmBooking(dto: ConfirmBookingDto): Promise<BookingResponseDto> {
+  async confirmBooking(
+    dto: ConfirmBookingDto,
+    user: Pick<AuthRequestUser, 'id' | 'email'>,
+  ): Promise<BookingResponseDto> {
     const {
       reservationId,
-      userId,
       paymentMethod,
       idempotencyKey,
       discountCode,
       metadata,
     } = dto;
+    const userId = user.id;
 
     // Check idempotency first
-    const existingBooking = await this.checkIdempotency(idempotencyKey);
+    const existingBooking = await this.checkIdempotency(idempotencyKey, userId);
     if (existingBooking) {
       this.logger.log(
         `Returning existing booking for idempotency key: ${idempotencyKey}`,
@@ -62,6 +75,8 @@ export class BookingService {
     // Start saga/transaction
     let paymentId: string | undefined;
     let paymentMetadata: Record<string, unknown> | undefined;
+    let reservedDiscountCode: string | undefined;
+    let createdBookingId: bigint | undefined;
     const seatIds: bigint[] = []; // Only for assigned seats
     const sectionAllocations: { sectionId: bigint; quantity: number }[] = []; // For GA
 
@@ -221,6 +236,19 @@ export class BookingService {
             }
           }
 
+          // Step 3.6: Atomically claim a use of the discount BEFORE charging,
+          // so concurrent checkouts cannot exceed its usage limit
+          if (appliedDiscountCode) {
+            const claimed =
+              await this.discountsService.reserveUsage(appliedDiscountCode);
+            if (!claimed) {
+              throw new BadRequestException(
+                BOOKING_MESSAGES.discountUsageLimitReached,
+              );
+            }
+            reservedDiscountCode = appliedDiscountCode;
+          }
+
           // Step 4: Process payment
           let paymentStatus: PaymentStatus = PaymentStatus.SUCCESS;
 
@@ -231,6 +259,8 @@ export class BookingService {
               userId,
               metadata: {
                 ...metadata,
+                // SECURITY: Receipt email comes from the account, not the client
+                email: user.email,
                 reservationId,
                 eventId: Number(reservation.eventId),
                 discountCode: appliedDiscountCode,
@@ -282,24 +312,17 @@ export class BookingService {
               paymentId,
               paymentStatus: paymentStatus,
               bookingReference,
+              discountCode: appliedDiscountCode ?? null,
               confirmedAt:
                 paymentStatus === PaymentStatus.PENDING ? null : new Date(),
             },
           });
 
+          createdBookingId = booking.id;
+
           this.logger.log(
             `Booking created: ${bookingReference}, Status: ${bookingStatus}, Payment: ${paymentStatus}`,
           );
-
-          // Step 5.5: Increment discount usage count if discount was applied
-          if (appliedDiscountCode) {
-            await this.discountsService.incrementUsageCount(
-              appliedDiscountCode,
-            );
-            this.logger.log(
-              `Incremented usage count for discount: ${appliedDiscountCode}`,
-            );
-          }
 
           // Step 6: Link items to booking
           for (const res of reservations) {
@@ -373,11 +396,46 @@ export class BookingService {
             seatNumbers,
           );
 
-          await this.storeIdempotency(idempotencyKey, dto, response, 200);
+          await this.storeIdempotency(
+            idempotencyKey,
+            { ...dto, userId },
+            response,
+            200,
+          );
 
           this.logger.log(
             `Booking confirmed: ${bookingReference} (Payment: ${paymentId})`,
           );
+
+          const bookingAnalytics = {
+            bookingReference,
+            eventId: Number(reservation.eventId),
+            paymentMethod: finalAmount > 0 ? paymentMethod : 'free',
+            amount: finalAmount,
+            currency: 'NGN',
+            ticketCount: reservations.length,
+            discountCode: appliedDiscountCode,
+            discountAmount,
+          };
+          this.analytics.capture(userId, ServerAnalyticsEvents.bookingCreated, {
+            ...bookingAnalytics,
+            status: bookingStatus,
+          });
+          // Free/instant payments are confirmed now; Paystack bookings are
+          // confirmed later by BookingSettlementService
+          if (bookingStatus === BookingStatus.CONFIRMED) {
+            BusinessMetrics.bookingConfirmed({
+              paymentMethod: bookingAnalytics.paymentMethod,
+              amount: finalAmount,
+              ticketCount: reservations.length,
+              minutesToPay: 0,
+            });
+            this.analytics.capture(
+              userId,
+              ServerAnalyticsEvents.bookingConfirmed,
+              bookingAnalytics,
+            );
+          }
 
           return response;
         },
@@ -403,6 +461,36 @@ export class BookingService {
               : 'Unknown error';
           this.logger.error(
             `Failed to refund payment ${paymentId}: ${errorMessage}`,
+          );
+        }
+      }
+
+      // Don't leave a half-created booking looking active
+      if (createdBookingId) {
+        try {
+          await this.prisma.booking.update({
+            where: { id: createdBookingId },
+            data: {
+              status: BookingStatus.FAILED,
+              paymentStatus: paymentId
+                ? PaymentStatus.REFUNDED
+                : PaymentStatus.FAILED,
+            },
+          });
+        } catch (bookingError) {
+          this.logger.error(
+            `Failed to mark booking ${createdBookingId} as failed: ${bookingError}`,
+          );
+        }
+      }
+
+      // Give back the discount use claimed for this attempt
+      if (reservedDiscountCode) {
+        try {
+          await this.discountsService.releaseUsage(reservedDiscountCode);
+        } catch (discountError) {
+          this.logger.error(
+            `Failed to release discount ${reservedDiscountCode}: ${discountError}`,
           );
         }
       }
@@ -441,6 +529,7 @@ export class BookingService {
    */
   async getBookingByReference(
     bookingReference: string,
+    user: Pick<AuthRequestUser, 'id' | 'role'>,
   ): Promise<BookingResponseDto> {
     const booking = await this.prisma.booking.findUnique({
       where: { bookingReference },
@@ -450,10 +539,20 @@ export class BookingService {
             seat: true,
           },
         },
+        event: {
+          select: { createdBy: true },
+        },
       },
     });
 
-    if (!booking) {
+    // SECURITY: Only the booking owner, the event organizer or an admin may
+    // view a booking. Respond with 404 to avoid confirming the reference exists.
+    if (
+      !booking ||
+      (booking.userId !== user.id &&
+        booking.event.createdBy !== user.id &&
+        !isAdminUser(user))
+    ) {
       throw new NotFoundException(BOOKING_MESSAGES.bookingNotFound);
     }
 
@@ -509,6 +608,7 @@ export class BookingService {
    */
   private async checkIdempotency(
     key: string,
+    userId: string,
   ): Promise<BookingResponseDto | null> {
     const record = await this.prisma.idempotencyKey.findUnique({
       where: { key },
@@ -521,6 +621,14 @@ export class BookingService {
     // Check if expired
     if (record.expiresAt < new Date()) {
       return null;
+    }
+
+    // SECURITY: Never replay another user's booking for a reused/guessed key
+    const storedRequest = JSON.parse(record.request || '{}') as {
+      userId?: string;
+    };
+    if (storedRequest.userId !== userId) {
+      throw new ConflictException('Idempotency key has already been used');
     }
 
     // Return cached response

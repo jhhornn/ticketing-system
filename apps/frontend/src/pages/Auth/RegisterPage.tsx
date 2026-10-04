@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { track, AnalyticsEvents } from '../../lib/analytics';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
@@ -48,6 +49,7 @@ export const RegisterPage: React.FC = () => {
             };
 
             login(accessToken, userWithRole);
+            track(AnalyticsEvents.userSignedUp);
             navigate('/dashboard');
         } catch (err: unknown) {
             if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'data' in err.response && err.response.data && typeof err.response.data === 'object' && 'message' in err.response.data) {

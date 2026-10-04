@@ -229,6 +229,7 @@ model Booking {
   paymentId        String?       @map("payment_id") @db.VarChar(100)
   paymentStatus    PaymentStatus @default(PENDING) @map("payment_status")
   bookingReference String        @unique @map("booking_reference") @db.VarChar(50)
+  discountCode     String?       @map("discount_code") @db.VarChar(50) // Released if the booking is abandoned
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
   confirmedAt      DateTime?     @map("confirmed_at") @db.Timestamp(6)
 
@@ -241,6 +242,7 @@ model Booking {
   @@index([userId], map: "idx_bookings_user_id")
   @@index([bookingReference], map: "idx_bookings_reference")
   @@index([status], map: "idx_bookings_status")
+  @@index([status, createdAt], map: "idx_bookings_status_created_at")
   @@map("bookings")
 }
 

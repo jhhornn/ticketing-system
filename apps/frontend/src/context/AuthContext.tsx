@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { identifyUser, resetUser } from '../lib/analytics';
 import { AuthContext, type AuthContextType, type User } from './AuthContextDefinition';
 
 export type { User, AuthContextType };
@@ -12,6 +13,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     const clearAuthState = () => {
+        resetUser();
         localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
         setToken(null);
         setUser(null);
@@ -35,6 +37,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         fetchProfile();
     }, [token]);
+
+    // Link analytics to the logged-in user (covers login and page reloads)
+    useEffect(() => {
+        if (user) {
+            identifyUser({ id: user.id, role: user.role });
+        }
+    }, [user]);
 
     const login = (newToken: string, newUser: User) => {
         localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, newToken);

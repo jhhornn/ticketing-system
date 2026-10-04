@@ -25,7 +25,7 @@ import {
 } from './dto/sections.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import type { IAuthenticatedUser } from '../../common/interfaces/index.js';
+import type { AuthRequestUser } from '../auth/guards/auth-request.types.js';
 import {
   ApiStandardResponse,
   ApiStandardArrayResponse,
@@ -53,9 +53,9 @@ export class SectionsController {
   )
   async create(
     @Body() createSectionDto: CreateSectionDto,
-    @CurrentUser() user: IAuthenticatedUser,
+    @CurrentUser() user: AuthRequestUser,
   ) {
-    const data = await this.sectionsService.create(createSectionDto, user.id);
+    const data = await this.sectionsService.create(createSectionDto, user);
     return { data };
   }
 
@@ -107,13 +107,9 @@ export class SectionsController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateSectionDto: UpdateSectionDto,
-    @CurrentUser() user: IAuthenticatedUser,
+    @CurrentUser() user: AuthRequestUser,
   ) {
-    const data = await this.sectionsService.update(
-      id,
-      updateSectionDto,
-      user.id,
-    );
+    const data = await this.sectionsService.update(id, updateSectionDto, user);
     return { data };
   }
 
@@ -129,8 +125,8 @@ export class SectionsController {
   @ApiParam({ name: 'id', type: Number })
   async remove(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: IAuthenticatedUser,
+    @CurrentUser() user: AuthRequestUser,
   ) {
-    await this.sectionsService.remove(id, user.id);
+    await this.sectionsService.remove(id, user);
   }
 }

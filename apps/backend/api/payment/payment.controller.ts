@@ -23,6 +23,8 @@ import type { Request } from 'express';
 import { PaymentService } from './payment.service.js';
 import { PaymentMethod } from './strategies/payment-strategy.interface.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import type { AuthRequestUser } from '../auth/guards/auth-request.types.js';
 import {
   ApiStandardResponse,
   ApiErrorResponses,
@@ -118,8 +120,15 @@ returned from \`POST /bookings/confirm\`.
   })
   @ApiStandardResponse(200, 'Payment verification result')
   @ApiErrorResponses()
-  async verifyPayment(@Param('reference') reference: string) {
-    return this.paymentService.verifyPayment(reference, PaymentMethod.PAYSTACK);
+  async verifyPayment(
+    @Param('reference') reference: string,
+    @CurrentUser() user: AuthRequestUser,
+  ) {
+    return this.paymentService.verifyPaymentForUser(
+      reference,
+      user,
+      PaymentMethod.PAYSTACK,
+    );
   }
 
   @Get('methods')

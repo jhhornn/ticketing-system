@@ -13,12 +13,14 @@ export class ConfirmBookingDto {
   reservationId: string;
 
   @ApiProperty({
-    description: 'User ID making the booking',
+    description:
+      'Deprecated and ignored — the booking is always made for the authenticated user',
     example: 'user123',
+    required: false,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  userId: string;
+  userId?: string;
 
   @ApiProperty({
     description: 'Payment method to use',

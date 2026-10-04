@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { track, AnalyticsEvents } from '../../lib/analytics';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
@@ -22,6 +23,7 @@ export const LoginPage: React.FC = () => {
             const { accessToken, user } = response.data.data;
             
             login(accessToken, user);
+            track(AnalyticsEvents.userLoggedIn);
             navigate('/dashboard');
         } catch (err: any) {
             setError(err.response?.data?.message || 'Login failed. Please check your credentials.');

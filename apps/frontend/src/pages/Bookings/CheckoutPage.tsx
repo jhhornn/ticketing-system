@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { track, AnalyticsEvents } from '../../lib/analytics';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CreditCard, CheckCircle, Loader2, ArrowLeft, Calendar, MapPin, Clock, Ticket } from 'lucide-react';
 import { BookingsService, PaymentMethod as PaymentMethodEnum } from '../../services/bookings';
@@ -159,6 +160,14 @@ export const CheckoutPage: React.FC = () => {
 
             const idempotencyKey = `booking-${state.reservationId}-${Date.now()}`;
 
+            track(AnalyticsEvents.checkoutSubmitted, {
+                eventId: state.eventId,
+                paymentMethod: selectedPaymentMethod,
+                totalPrice: state.totalPrice,
+                ticketCount: state.quantity,
+                hasDiscount: !!state.discountCode,
+            });
+
             const response = await BookingsService.confirmBooking({
                 reservationId: String(state.reservationId),
                 userId: user.id,
@@ -185,6 +194,10 @@ export const CheckoutPage: React.FC = () => {
                     throw new Error('Paystack checkout URL was not returned by the server');
                 }
 
+                track(AnalyticsEvents.paystackRedirected, {
+                    eventId: state.eventId,
+                    bookingReference: response.bookingReference,
+                });
                 window.location.assign(authorizationUrl);
                 return;
             }
@@ -214,6 +227,12 @@ export const CheckoutPage: React.FC = () => {
             setError(error.response?.data?.message || error.message || 'Failed to confirm booking');
 
             endPaymentTracking(false);
+
+            track(AnalyticsEvents.checkoutFailed, {
+                eventId: state.eventId,
+                paymentMethod: selectedPaymentMethod,
+                error: error.response?.data?.message || error.message,
+            });
 
             trackEvent(PaymentProtectionCopy.analyticsEvents.retryAttempted, {
                 success: false,

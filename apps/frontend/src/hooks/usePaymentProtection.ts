@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { track } from '../lib/analytics';
 
 interface PaymentProtectionState {
   /** Whether slow network has been detected (>5s request time) */
@@ -138,18 +139,12 @@ export const usePaymentProtection = (): UsePaymentProtectionReturn => {
   // Track analytics events
   const trackEvent = useCallback(
     (eventName: string, metadata?: Record<string, unknown>) => {
-      // Log to console (replace with actual analytics integration)
-      console.log('[Payment Protection Analytics]', {
-        event: eventName,
-        timestamp: new Date().toISOString(),
+      track(eventName, {
         ...metadata,
         requestDuration: state.requestDuration,
         wasSlowNetwork: state.isSlowNetwork,
         wasReplay: state.isReplay,
       });
-
-      // TODO: Integrate with actual analytics service
-      // Example: analytics.track(eventName, metadata);
     },
     [state.requestDuration, state.isSlowNetwork, state.isReplay]
   );

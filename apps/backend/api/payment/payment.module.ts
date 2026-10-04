@@ -5,9 +5,10 @@ import { MockPaymentStrategy } from './strategies/mock-payment.strategy';
 import { StripePaymentStrategy } from './strategies/stripe-payment.strategy';
 import { PaystackPaymentStrategy } from './strategies/paystack-payment.strategy';
 import { DatabaseModule } from '../../common/database/database.module';
+import { BookingSettlementModule } from '../booking/settlement/booking-settlement.module.js';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, BookingSettlementModule],
   controllers: [PaymentController],
   providers: [
     PaymentService,

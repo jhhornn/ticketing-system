@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { track, AnalyticsEvents } from '../../lib/analytics';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader2, AlertTriangle, ArrowRight } from 'lucide-react';
 import { PaymentsService } from '../../services/payments';
@@ -32,6 +33,14 @@ export const PaymentVerifyPage: React.FC = () => {
         try {
             const result = await PaymentsService.verifyPayment(ref);
             setVerification(result);
+
+            if (result.status !== 'PENDING') {
+                track(AnalyticsEvents.paymentVerified, {
+                    status: result.status,
+                    amount: result.amount,
+                    currency: result.currency,
+                });
+            }
 
             if (result.success && result.status === 'SUCCESS') {
                 setState('success');

@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/database/prisma.service.js';
 import {
@@ -19,6 +20,12 @@ import {
   UpdateSectionDto,
   SectionResponseDto,
 } from './dto/sections.dto.js';
+import {
+  type AuthRequestUser,
+  isAdminUser,
+} from '../auth/guards/auth-request.types.js';
+
+type SectionActor = Pick<AuthRequestUser, 'id' | 'role'>;
 
 @Injectable()
 export class SectionsService {
@@ -29,8 +36,9 @@ export class SectionsService {
 
   async create(
     createSectionDto: CreateSectionDto,
-    userId: string,
+    user: SectionActor,
   ): Promise<SectionResponseDto> {
+    const userId = user.id;
     const { eventId, generateSeats, rows, seatsPerRow, ...sectionData } =
       createSectionDto;
 
@@ -43,11 +51,7 @@ export class SectionsService {
       throw new NotFoundException(`Event with ID ${eventId} not found`);
     }
 
-    if (!event.isFree && sectionData.price <= 0) {
-      throw new BadRequestException(
-        'Paid event sections must have a price greater than zero.',
-      );
-    }
+    this.assertCanManageEvent(event.createdBy, user);
 
     // SECURITY: Validate total capacity doesn't exceed event capacity
     await this.validateEventCapacity(eventId, sectionData.totalCapacity);
@@ -111,6 +115,25 @@ export class SectionsService {
   }
 
   /**
+   * SECURITY: Only the event organizer (or an admin) may change its sections,
+   * since sections carry ticket prices and capacity.
+   */
+  private assertCanManageEvent(
+    eventCreatedBy: string | null,
+    user: SectionActor,
+  ): void {
+    if (isAdminUser(user)) {
+      return;
+    }
+
+    if (!eventCreatedBy || eventCreatedBy !== user.id) {
+      throw new ForbiddenException(
+        'You do not have permission to manage sections for this event',
+      );
+    }
+  }
+
+  /**
    * Validate that adding a new section won't exceed event's total capacity
    */
   private async validateEventCapacity(
@@ -171,31 +194,19 @@ export class SectionsService {
   async update(
     id: number,
     updateSectionDto: UpdateSectionDto,
-    userId: string,
+    user: SectionActor,
   ): Promise<SectionResponseDto> {
+    const userId = user.id;
     const section = await this.prisma.eventSection.findUnique({
       where: { id },
+      include: { event: { select: { createdBy: true } } },
     });
 
     if (!section) {
       throw new NotFoundException(`Section with ID ${id} not found`);
     }
 
-    if (
-      updateSectionDto.price !== undefined &&
-      updateSectionDto.price <= 0
-    ) {
-      const event = await this.prisma.event.findUnique({
-        where: { id: section.eventId },
-        select: { isFree: true },
-      });
-
-      if (!event?.isFree) {
-        throw new BadRequestException(
-          'Paid event sections must have a price greater than zero.',
-        );
-      }
-    }
+    this.assertCanManageEvent(section.event.createdBy, user);
 
     // Prevent reducing capacity below allocated
     if (
@@ -253,14 +264,18 @@ export class SectionsService {
     return this.mapToResponse(updated);
   }
 
-  async remove(id: number, userId: string): Promise<void> {
+  async remove(id: number, user: SectionActor): Promise<void> {
+    const userId = user.id;
     const section = await this.prisma.eventSection.findUnique({
       where: { id },
+      include: { event: { select: { createdBy: true } } },
     });
 
     if (!section) {
       throw new NotFoundException(`Section with ID ${id} not found`);
     }
+
+    this.assertCanManageEvent(section.event.createdBy, user);
 
     // Check if any bookings exist for this event
     const bookingCount = await this.prisma.booking.count({
